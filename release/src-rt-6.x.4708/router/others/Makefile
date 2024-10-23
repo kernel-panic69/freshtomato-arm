@@ -85,6 +85,13 @@ else
 	sed -i $(INSTALLDIR)/usr/sbin/ethstate -e "/BCMARMNO-BEGIN/,/BCMARMNO-END/d"
 endif
 
+# Ethernet state report mod for RTL8365MB switch (RT-AC88U)
+ifneq ($(TCONFIG_EXTSW),y)
+	sed -i $(INSTALLDIR)/usr/sbin/ethstate -e "/EXTSW-BEGIN/,/EXTSW-END/d"
+else
+	sed -i $(INSTALLDIR)/usr/sbin/ethstate -e "/EXTSW-NO-BEGIN/,/EXTSW-NO-END/d"
+endif
+
 # stealthMode
 ifneq ($(TCONFIG_BCMARM),y)
 ifneq ($(TCONFIG_OPTIMIZE_SIZE_MORE),y)
@@ -182,6 +189,8 @@ endif
 			-e "/STUBBYNO-BEGIN/d"	-e "/STUBBYNO-END/d" \
 			-e "/BCMARM-BEGIN/d"	-e "/BCMARM-END/d" \
 			-e "/BCMARMNO-BEGIN/d"	-e "/BCMARMNO-END/d" \
+			-e "/EXTSW-BEGIN/d"	-e "/EXTSW-END/d" \
+			-e "/EXTSW-NO-BEGIN/d"	-e "/EXTSW-NO-END/d" \
 			-e "/BBT-BEGIN/d"	-e "/BBT-END/d" \
 			|| true; \
 		done

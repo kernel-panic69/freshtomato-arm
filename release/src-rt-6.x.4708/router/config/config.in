@@ -406,3 +406,7 @@ config TCONFIG_PROXY
 config TCONFIG_HAVEGED
 	bool "Haveged, an entrophy daemon"
 	default n
+
+config TCONFIG_EXTSW
+	bool "Add RTL8365MB switch support (RT-AC88U)"
+	default n
