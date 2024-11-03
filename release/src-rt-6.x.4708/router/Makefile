@@ -1684,7 +1684,7 @@ wsdd2-clean:
 	-@$(MAKE) -C wsdd2 clean
 	$(call unpatch_files,wsdd2)
 
-accel-pptp/Makefile: accel-pptp/Makefile.in $(LINUXDIR)/include/linux/version.h
+accel-pptp/Makefile:
 	$(call patch_files,accel-pptp)
 	cd accel-pptp && \
 		CFLAGS="-g -O2 $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
