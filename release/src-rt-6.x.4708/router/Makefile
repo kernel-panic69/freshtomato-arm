@@ -289,6 +289,8 @@ endif
 obj-$(TCONFIG_BCMARM)		+= taskset
 obj-y				+= rc wanuptime rom others www bridge etc pppd rp-pppoe utils$(BCMEX) cstats rstats hotplug2 udevtrigger libusb10 usbmodeswitch
 obj-y				+= $(if $(TCONFIG_BCMARM),libmnl) $(IPSET_TARGET)
+obj-$(TCONFIG_PPTP)		+= accel-pptp
+obj-$(TCONFIG_PPTPD)		+= pptpd
 obj-$(TCONFIG_PROXY)		+= igmpproxy udpxy
 obj-$(TCONFIG_IPERF)		+= iperf
 obj-$(TCONFIG_BCMBSD)		+= bsd
@@ -337,8 +339,6 @@ obj-$(TCONFIG_STUBBY)		+= $(SSL_TARGET) libyaml getdns
 obj-$(TCONFIG_FTP)		+= $(if $(TCONFIG_FTP_SSL),$(SSL_TARGET)) vsftpd
 obj-$(TCONFIG_SDHC)		+= mmc
 obj-$(TCONFIG_L2TP)		+= xl2tpd
-obj-$(TCONFIG_PPTP)		+= accel-pptp
-obj-$(TCONFIG_PPTPD)		+= pptpd
 obj-$(TCONFIG_RAID)		+= mdadm
 obj-$(TCONFIG_NFS)		+= e2fsprogs zlib libevent portmap libnfsidmap nfs-utils
 obj-$(TCONFIG_USB)		+= e2fsprogs p910nd comgt libjson-c libubox uqmi sd-idle apcupsd
@@ -1705,14 +1705,14 @@ accel-pptp-clean:
 	@rm -f accel-pptp/Makefile
 	$(call unpatch_files,accel-pptp)
 
-pptpd/stamp-h1:
+pptpd/Makefile:
 	$(call patch_files,pptpd)
-	ln -sf ../../pppd/pppd/ pptpd/plugins/pppd
 	cd pptpd && \
-		$(CONFIGURE) --prefix=$(INSTALLDIR)/pptpd --enable-bcrelay
-	touch $@
+		CFLAGS="-Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-Wl,--gc-sections" \
+		$(CONFIGURE) --prefix=$(INSTALLDIR)/pptpd --enable-bcrelay --disable-dependency-tracking
 
-pptpd: pptpd/stamp-h1
+pptpd: pptpd/Makefile
 	@$(SEP)
 	@$(MAKE) -C $@ $(PARALLEL_BUILD)
 
@@ -1724,7 +1724,7 @@ pptpd-install:
 
 pptpd-clean:
 	-@$(MAKE) -C pptpd clean
-	@rm -rf pptpd/stamp-h1 pptpd/.deps
+	@rm -rf pptpd/Makefile
 	@rm -f pptpd/plugins/pppd
 	$(call unpatch_files,pptpd)
 
