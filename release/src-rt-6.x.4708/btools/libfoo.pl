@@ -148,6 +148,8 @@ sub fixDynDep
 
 sub fixDyn
 {
+	print LOG "\nStarting fixDyn ...\n";
+
 	foreach (@elfs) {
 		if (/^libipt_.+\.so$/) {
 			fixDynDep("iptables", $_);
@@ -172,8 +174,6 @@ sub fixDyn
 		}
 	}
 
-	fixDynDep("l2tpd", "cmd.so");
-	fixDynDep("l2tpd", "sync-pppd.so");
 	fixDynDep("pppd", "pppol2tp.so");
 	fixDynDep("pppd", "pptp.so");
 	fixDynDep("pppd", "rp-pppoe.so");
@@ -422,7 +422,8 @@ sub fillGaps
 	my $t;
 	my $found;
 
-#	print "Resolving implicit links...\n";
+#	print "\nfillGaps: Resolving implicit links...\n";
+	print LOG "\nfillGaps: Resolving implicit links...\n";
 
 	foreach $name (@elfs) {
 		foreach $sym (keys %{$elf_ext{$name}}) {
