@@ -1493,17 +1493,16 @@ iproute2-3.x-clean:
 	-rm -f iproute2-3.x/Config
 	$(call unpatch_files,iproute2-3.x)
 
-rp-pppoe/src/stamp-h1: rp-pppoe/src/Makefile.in
+rp-pppoe/src/Makefile:
 	$(call patch_files,rp-pppoe)
 	cd rp-pppoe/src && \
 		CFLAGS="$(if $(TCONFIG_OPTIMIZE_SIZE),-Os,-O2) -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 		CPPFLAGS="$(if $(TCONFIG_OPTIMIZE_SIZE),-Os,-O2) -ffunction-sections -fdata-sections" \
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 		$(CONFIGURE) --prefix=/usr --enable-plugin=$(TOP)/pppd --disable-debugging \
-			ac_cv_linux_kernel_pppoe=yes rpppoe_cv_pack_bitfields=rev ac_cv_path_PPPD=$(TOP)/pppd
-	@touch $@
+			ac_cv_linux_kernel_pppoe=yes ac_cv_path_PPPD=$(TOP)/pppd
 
-rp-pppoe: rp-pppoe/src/stamp-h1
+rp-pppoe: rp-pppoe/src/Makefile
 	@$(SEP)
 	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so $(PARALLEL_BUILD)
 
@@ -1515,8 +1514,7 @@ rp-pppoe-install:
 
 rp-pppoe-clean:
 	-@$(MAKE) -C rp-pppoe/src clean
-	@rm -f rp-pppoe/src/pppoe-relay
-	@rm -f rp-pppoe/src/stamp-h1
+	@rm -f rp-pppoe/src/Makefile
 	$(call unpatch_files,rp-pppoe)
 
 libnfnetlink/stamp-h1:
