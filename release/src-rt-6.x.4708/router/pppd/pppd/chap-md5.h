@@ -17,7 +17,7 @@
  * 3. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by Paul Mackerras
- *     <paulus@samba.org>".
+ *     <paulus@ozlabs.org>".
  *
  * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
  * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -28,4 +28,11 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifndef PPP_CHAP_MD5_H
+#define PPP_CHAP_MD5_H
+
+#include "pppdconf.h"
+
 extern void chap_md5_init(void);
+
+#endif

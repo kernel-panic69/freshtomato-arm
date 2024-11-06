@@ -30,6 +30,19 @@
  *
  * $Id: ecp.h,v 1.2 2003/01/10 07:12:36 fcusack Exp $
  */
+#ifndef PPP_ECP_H
+#define PPP_ECP_H
+
+#include "pppdconf.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef PPP_ECP
+#define PPP_ECP 0x8053
+#endif
+
 
 typedef struct ecp_options {
     bool required;		/* Is ECP required? */
@@ -43,3 +56,9 @@ extern ecp_options ecp_allowoptions[];
 extern ecp_options ecp_hisoptions[];
 
 extern struct protent ecp_protent;
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif	// PPP_ECP_H

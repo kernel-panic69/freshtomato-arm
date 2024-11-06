@@ -34,7 +34,7 @@
  * 3. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by Paul Mackerras
- *     <paulus@samba.org>".
+ *     <paulus@ozlabs.org>".
  *
  * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
  * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -85,6 +85,10 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <limits.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -127,11 +131,19 @@
 #include <sys/ethernet.h>
 #endif
 
-#include "pppd.h"
+#ifdef PPP_WITH_FILTER
+#include <pcap.h>
+#endif
+
+#include "pppd-private.h"
 #include "fsm.h"
 #include "lcp.h"
 #include "ipcp.h"
 #include "ccp.h"
+
+#ifdef PPP_WITH_IPV6CP
+#include "eui64.h"
+#endif
 
 #if !defined(PPP_DRV_NAME)
 #define PPP_DRV_NAME	"ppp"
@@ -182,7 +194,7 @@ static int	fdmuxid = -1;
 static int	ipfd;
 static int	ipmuxid = -1;
 
-#if defined(INET6) && defined(SOL2)
+#if defined(PPP_WITH_IPV6CP) && defined(SOL2)
 static int	ip6fd;		/* IP file descriptor */
 static int	ip6muxid = -1;	/* Multiplexer file descriptor */
 static int	if6_is_up = 0;	/* IPv6 interface has been marked up */
@@ -216,11 +228,11 @@ static int	if6_is_up = 0;	/* IPv6 interface has been marked up */
 #define IN6A_LLADDR_FROM_EUI64(s, eui64)  \
     _IN6A_LLX_FROM_EUI64(s, eui64, 0xfe800000)
 
-#endif /* defined(INET6) && defined(SOL2) */
+#endif /* defined(PPP_WITH_IPV6CP) && defined(SOL2) */
 
-#if !defined(INET6) || !defined(SOL2)
+#if !defined(PPP_WITH_IPV6CP) || !defined(SOL2)
 #define MAXIFS		256			/* Max # of interfaces */
-#endif /* defined(INET6) && defined(SOL2) */
+#endif /* defined(PPP_WITH_IPV6CP) && defined(SOL2) */
 
 static int	restore_term;
 static struct termios inittermios;
@@ -289,7 +301,7 @@ sifppa(fd, ppa)
 }
 #endif /* SOL2 */
 
-#if defined(SOL2) && defined(INET6)
+#if defined(SOL2) && defined(PPP_WITH_IPV6CP)
 /*
  * get_first_ether_hwaddr - get the hardware address for the first
  * ethernet-style interface on this system.
@@ -469,7 +481,7 @@ get_first_ether_hwaddr(u_char *addr)
     else
 	return -1;
 }
-#endif /* defined(SOL2) && defined(INET6) */
+#endif /* defined(SOL2) && defined(PPP_WITH_IPV6CP) */
 
 #if defined(SOL2)
 /*
@@ -498,7 +510,7 @@ get_if_hwaddr(u_char *addr, char *if_name)
 }
 #endif /* SOL2 */
 
-#if defined(SOL2) && defined(INET6)
+#if defined(SOL2) && defined(PPP_WITH_IPV6CP)
 /*
  * slifname - Sets interface ppa and flags
  *
@@ -528,7 +540,7 @@ slifname_done:
 
 
 }
-#endif /* defined(SOL2) && defined(INET6) */
+#endif /* defined(SOL2) && defined(PPP_WITH_IPV6CP) */
 
 /*
  * sys_init - System-dependent initialization.
@@ -538,10 +550,10 @@ sys_init(void)
 {
     int ifd, x;
     struct ifreq ifr;
-#if defined(INET6) && defined(SOL2)
+#if defined(PPP_WITH_IPV6CP) && defined(SOL2)
     int i6fd;
     struct lifreq lifr;
-#endif /* defined(INET6) && defined(SOL2) */
+#endif /* defined(PPP_WITH_IPV6CP) && defined(SOL2) */
 #if !defined(SOL2)
     struct {
 	union DL_primitives prim;
@@ -553,11 +565,11 @@ sys_init(void)
     if (ipfd < 0)
 	fatal("Couldn't open IP device: %m");
 
-#if defined(INET6) && defined(SOL2)
+#if defined(PPP_WITH_IPV6CP) && defined(SOL2)
     ip6fd = open(UDP6_DEV_NAME, O_RDWR, 0);
     if (ip6fd < 0)
 	fatal("Couldn't open IP device (2): %m");
-#endif /* defined(INET6) && defined(SOL2) */
+#endif /* defined(PPP_WITH_IPV6CP) && defined(SOL2) */
 
     if (default_device && !notty)
 	tty_sid = getsid((pid_t)0);
@@ -596,7 +608,7 @@ sys_init(void)
 	strioctl(ifd, PPPIO_DEBUG, &x, sizeof(int), 0);
     }
 
-#if defined(INET6) && defined(SOL2)
+#if defined(PPP_WITH_IPV6CP) && defined(SOL2)
     i6fd = open(PPP_DEV_NAME, O_RDWR, 0);
     if (i6fd < 0) {
 	close(ifd);
@@ -606,14 +618,14 @@ sys_init(void)
 	x = PPPDBG_LOG + PPPDBG_DRIVER;
 	strioctl(i6fd, PPPIO_DEBUG, &x, sizeof(int), 0);
     }
-#endif /* defined(INET6) && defined(SOL2) */
+#endif /* defined(PPP_WITH_IPV6CP) && defined(SOL2) */
 
 #if defined(SOL2)
     if (ioctl(ifd, I_PUSH, IP_MOD_NAME) < 0) {
 	close(ifd);
-#if defined(INET6)
+#if defined(PPP_WITH_IPV6CP)
 	close(i6fd);
-#endif /* defined(INET6) */
+#endif /* defined(PPP_WITH_IPV6CP) */
 	fatal("Can't push IP module: %m");
     }
 
@@ -623,13 +635,13 @@ sys_init(void)
      */
     if (sifppa(ifd, ifunit) < 0) {
         close (ifd);
-#if defined(INET6)
+#if defined(PPP_WITH_IPV6CP)
 	close(i6fd);
-#endif /* defined(INET6) */
+#endif /* defined(PPP_WITH_IPV6CP) */
         fatal("Can't set ppa for unit %d: %m", ifunit);
     }
 
-#if defined(INET6)
+#if defined(PPP_WITH_IPV6CP)
     /*
      * An IPv6 interface is created anyway, even when the user does not 
      * explicitly enable it. Note that the interface will be marked
@@ -651,14 +663,14 @@ sys_init(void)
 	close(i6fd);
 	fatal("Can't set ifname for unit %d: %m", ifunit);
     }
-#endif /* defined(INET6) */
+#endif /* defined(PPP_WITH_IPV6CP) */
 
     ipmuxid = ioctl(ipfd, I_PLINK, ifd);
     close(ifd);
     if (ipmuxid < 0) {
-#if defined(INET6)
+#if defined(PPP_WITH_IPV6CP)
 	close(i6fd);
-#endif /* defined(INET6) */
+#endif /* defined(PPP_WITH_IPV6CP) */
 	fatal("Can't I_PLINK PPP device to IP: %m");
     }
 
@@ -675,9 +687,9 @@ sys_init(void)
      */
     if (ioctl(ipfd, SIOCSIFMUXID, &ifr) < 0) {
 	ioctl(ipfd, I_PUNLINK, ipmuxid);
-#if defined(INET6)
+#if defined(PPP_WITH_IPV6CP)
 	close(i6fd);
-#endif /* defined(INET6) */
+#endif /* defined(PPP_WITH_IPV6CP) */
 	fatal("SIOCSIFMUXID: %m");
     }
 
@@ -695,7 +707,7 @@ sys_init(void)
 	fatal("Can't link PPP device to IP: %m");
 #endif /* defined(SOL2) */
 
-#if defined(INET6) && defined(SOL2)
+#if defined(PPP_WITH_IPV6CP) && defined(SOL2)
     ip6muxid = ioctl(ip6fd, I_PLINK, i6fd);
     close(i6fd);
     if (ip6muxid < 0) {
@@ -715,7 +727,7 @@ sys_init(void)
 	ioctl(ip6fd, I_PUNLINK, ip6muxid);
 	fatal("Can't link PPP device to IP (2): %m");
     }
-#endif /* defined(INET6) && defined(SOL2) */
+#endif /* defined(PPP_WITH_IPV6CP) && defined(SOL2) */
 
 #if !defined(SOL2)
     /* Set the interface name for the link. */
@@ -738,15 +750,15 @@ sys_cleanup(void)
 {
 #if defined(SOL2)
     struct ifreq ifr;
-#if defined(INET6)
+#if defined(PPP_WITH_IPV6CP)
     struct lifreq lifr;
-#endif /* defined(INET6) */
+#endif /* defined(PPP_WITH_IPV6CP) */
 #endif /* defined(SOL2) */
 
-#if defined(SOL2) && defined(INET6)
+#if defined(SOL2) && defined(PPP_WITH_IPV6CP)
     if (if6_is_up)
 	sif6down(0);
-#endif /* defined(SOL2) && defined(INET6) */
+#endif /* defined(SOL2) && defined(PPP_WITH_IPV6CP) */
     if (if_is_up)
 	sifdown(0);
     if (default_route_gateway)
@@ -778,7 +790,7 @@ sys_cleanup(void)
 	error("Can't I_PUNLINK PPP from IP: %m");
 	return;
     }
-#if defined(INET6)
+#if defined(PPP_WITH_IPV6CP)
     /*
      * Make sure we ask ip what the muxid, because 'ifconfig modlist' will
      * unlink and re-link the modules, causing the muxid to change.
@@ -800,7 +812,7 @@ sys_cleanup(void)
     if (ioctl(ip6fd, I_PUNLINK, ip6muxid) < 0) {
 	error("Can't I_PUNLINK PPP from IP (2): %m");
     }
-#endif /* defined(INET6) */
+#endif /* defined(PPP_WITH_IPV6CP) */
 #endif /* defined(SOL2) */
 }
 
@@ -808,12 +820,12 @@ sys_cleanup(void)
  * sys_close - Clean up in a child process before execing.
  */
 void
-sys_close(void)
+ppp_sys_close(void)
 {
     close(ipfd);
-#if defined(INET6) && defined(SOL2)
+#if defined(PPP_WITH_IPV6CP) && defined(SOL2)
     close(ip6fd);
-#endif /* defined(INET6) && defined(SOL2) */
+#endif /* defined(PPP_WITH_IPV6CP) && defined(SOL2) */
     if (pppfd >= 0)
 	close(pppfd);
 }
@@ -853,10 +865,10 @@ daemon(int nochdir, int noclose)
 #endif
 
 /*
- * ppp_available - check whether the system has any ppp interfaces
+ * ppp_check_kernel_support - check whether the system has any ppp interfaces
  */
 int
-ppp_available(void)
+ppp_check_kernel_support(void)
 {
     struct stat buf;
 
@@ -903,7 +915,7 @@ tty_establish_ppp(int fd)
     /* Push the async hdlc module and the compressor module. */
     tty_npushed = 0;
 
-    if(!sync_serial) {
+    if(!ppp_sync_serial()) {
         if (ioctl(fd, I_PUSH, AHDLC_MOD_NAME) < 0) {
             error("Couldn't push PPP Async HDLC module: %m");
 	    return -1;
@@ -1148,12 +1160,12 @@ set_up_tty(int fd, int local)
     struct termiox tiox;
 #endif
 
-    if (!sync_serial && tcgetattr(fd, &tios) < 0)
+    if (!ppp_sync_serial() && tcgetattr(fd, &tios) < 0)
 	fatal("tcgetattr: %m");
 
 #ifndef CRTSCTS
     termiox_ok = 1;
-    if (!sync_serial && ioctl (fd, TCGETX, &tiox) < 0) {
+    if (!ppp_sync_serial() && ioctl (fd, TCGETX, &tiox) < 0) {
 	termiox_ok = 0;
 	if (errno != ENOTTY)
 	    error("TCGETX: %m");
@@ -1165,7 +1177,7 @@ set_up_tty(int fd, int local)
 #ifndef CRTSCTS
 	inittermiox = tiox;
 #endif
-	if (!sync_serial)
+	if (!ppp_sync_serial())
 	    ioctl(fd, TIOCGWINSZ, &wsinfo);
     }
 
@@ -1213,21 +1225,21 @@ set_up_tty(int fd, int local)
 	 * We can't proceed if the serial port speed is 0,
 	 * since that implies that the serial port is disabled.
 	 */
-	if ((speed == B0) && !sync_serial)
+	if ((speed == B0) && !ppp_sync_serial())
 	    fatal("Baud rate for %s is 0; need explicit baud rate", devnam);
     }
 
-    if (!sync_serial && tcsetattr(fd, TCSAFLUSH, &tios) < 0)
+    if (!ppp_sync_serial() && tcsetattr(fd, TCSAFLUSH, &tios) < 0)
 	fatal("tcsetattr: %m");
 
 #ifndef CRTSCTS
-    if (!sync_serial && termiox_ok && ioctl (fd, TCSETXF, &tiox) < 0){
+    if (!ppp_sync_serial() && termiox_ok && ioctl (fd, TCSETXF, &tiox) < 0){
 	error("TCSETXF: %m");
     }
 #endif
 
     baud_rate = inspeed = baud_rate_of(speed);
-    if (!sync_serial)
+    if (!ppp_sync_serial())
 	restore_term = 1;
 }
 
@@ -1247,16 +1259,16 @@ restore_tty(int fd)
 	     */
 	    inittermios.c_lflag &= ~(ECHO | ECHONL);
 	}
-	if (!sync_serial && tcsetattr(fd, TCSAFLUSH, &inittermios) < 0)
+	if (!ppp_sync_serial() && tcsetattr(fd, TCSAFLUSH, &inittermios) < 0)
 	    if (!hungup && errno != ENXIO)
 		warn("tcsetattr: %m");
 #ifndef CRTSCTS
-	if (!sync_serial && ioctl (fd, TCSETXF, &inittermiox) < 0){
+	if (!ppp_sync_serial() && ioctl (fd, TCSETXF, &inittermiox) < 0){
 	    if (!hungup && errno != ENXIO)
 		error("TCSETXF: %m");
 	}
 #endif
-	if (!sync_serial)
+	if (!ppp_sync_serial())
 	    ioctl(fd, TIOCSWINSZ, &wsinfo);
 	restore_term = 0;
     }
@@ -1448,16 +1460,16 @@ get_loop_output(void)
 }
 
 /*
- * netif_set_mtu - set the MTU on the PPP network interface.
+ * ppp_set_mtu - set the MTU on the PPP network interface.
  */
 void
-netif_set_mtu(int unit, int mtu)
+ppp_set_mtu(int unit, int mtu)
 {
     struct ifreq ifr;
-#if defined(INET6) && defined(SOL2)
+#if defined(PPP_WITH_IPV6CP) && defined(SOL2)
     struct lifreq lifr;
     int	fd;
-#endif /* defined(INET6) && defined(SOL2) */
+#endif /* defined(PPP_WITH_IPV6CP) && defined(SOL2) */
 
     memset(&ifr, 0, sizeof(ifr));
     strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
@@ -1466,7 +1478,7 @@ netif_set_mtu(int unit, int mtu)
 	error("Couldn't set IP MTU (%s): %m", ifr.ifr_name);
     }
 
-#if defined(INET6) && defined(SOL2) 
+#if defined(PPP_WITH_IPV6CP) && defined(SOL2)
     fd = socket(AF_INET6, SOCK_DGRAM, 0);
     if (fd < 0)
 	error("Couldn't open IPv6 socket: %m");
@@ -1479,16 +1491,16 @@ netif_set_mtu(int unit, int mtu)
 	error("Couldn't set IPv6 MTU (%s): %m", ifr.ifr_name);
     }
     close(fd);
-#endif /* defined(INET6) && defined(SOL2) */
+#endif /* defined(PPP_WITH_IPV6CP) && defined(SOL2) */
 }
 
 
 
 /*
- * netif_get_mtu - get the MTU on the PPP network interface.
+ * ppp_get_mtu - get the MTU on the PPP network interface.
  */
 int
-netif_get_mtu(int unit)
+ppp_get_mtu(int unit)
 {
     struct ifreq ifr;
 
@@ -1520,7 +1532,7 @@ tty_send_config(int mtu, u_int32_t asyncmap, int pcomp, int accomp)
 	error("Couldn't set MTU: %m");
     }
     if (fdmuxid >= 0) {
-	if (!sync_serial) {
+	if (!ppp_sync_serial()) {
 	    if (strioctl(pppfd, PPPIO_XACCM, &asyncmap, sizeof(asyncmap), 0) < 0)
 		error("Couldn't set transmit ACCM: %m");
 	}
@@ -1538,7 +1550,7 @@ tty_send_config(int mtu, u_int32_t asyncmap, int pcomp, int accomp)
 void
 tty_set_xaccm(ext_accm accm)
 {
-    if (sync_serial)
+    if (ppp_sync_serial())
 	return;
 
     if (fdmuxid >= 0
@@ -1566,7 +1578,7 @@ tty_recv_config(int mru, u_int32_t asyncmap, int pcomp, int accomp)
 	error("Couldn't set MRU: %m");
     }
     if (fdmuxid >= 0) {
-	if (!sync_serial) {
+	if (!ppp_sync_serial()) {
 	    if (strioctl(pppfd, PPPIO_RACCM, &asyncmap, sizeof(asyncmap), 0) < 0)
 		error("Couldn't set receive ACCM: %m");
 	}
@@ -1624,7 +1636,7 @@ get_ppp_stats(int u, struct pppd_stats *stats)
 {
     struct ppp_stats s;
 
-    if (!sync_serial && 
+    if (!ppp_sync_serial() &&
 	strioctl(pppfd, PPPIO_GETSTAT, &s, 0, sizeof(s)) < 0) {
 	error("Couldn't get link statistics: %m");
 	return 0;
@@ -1635,33 +1647,6 @@ get_ppp_stats(int u, struct pppd_stats *stats)
     stats->pkts_out = s.p.ppp_opackets;
     return 1;
 }
-
-#if 0
-/*
- * set_filters - transfer the pass and active filters to the kernel.
- */
-int
-set_filters(struct bpf_program *pass, struct bpf_program *active)
-{
-    int ret = 1;
-
-    if (pass->bf_len > 0) {
-	if (strioctl(pppfd, PPPIO_PASSFILT, pass,
-		     sizeof(struct bpf_program), 0) < 0) {
-	    error("Couldn't set pass-filter in kernel: %m");
-	    ret = 0;
-	}
-    }
-    if (active->bf_len > 0) {
-	if (strioctl(pppfd, PPPIO_ACTIVEFILT, active,
-		     sizeof(struct bpf_program), 0) < 0) {
-	    error("Couldn't set active-filter in kernel: %m");
-	    ret = 0;
-	}
-    }
-    return ret;
-}
-#endif
 
 /*
  * ccp_fatal_error - returns 1 if decompression was disabled as a
@@ -1773,7 +1758,7 @@ sifnpmode(int u, int proto, enum NPmode mode)
     return 1;
 }
 
-#if defined(SOL2) && defined(INET6)
+#if defined(SOL2) && defined(PPP_WITH_IPV6CP)
 /*
  * sif6up - Config the IPv6 interface up and enable IPv6 packets to pass.
  */
@@ -1957,7 +1942,7 @@ cif6defaultroute(int u, eui64_t l, eui64_t g)
     return 1;
 }
 
-#endif /* defined(SOL2) && defined(INET6) */
+#endif /* defined(SOL2) && defined(PPP_WITH_IPV6CP) */
 
 
 #define INET_ADDR(x)	(((struct sockaddr_in *) &(x))->sin_addr.s_addr)
@@ -2328,7 +2313,7 @@ dlpi_get_reply(int fd, union DL_primitives *reply, int expected_prim, size_t max
     pfd.events = POLLIN | POLLPRI;
     do {
 	n = poll(&pfd, 1, 1000);
-    } while (n == -1 && errno == EINTR && !got_sigterm);
+    } while (n == -1 && errno == EINTR && !ppp_signaled(SIGTERM));
     if (n <= 0)
 	return -1;
 
@@ -2759,7 +2744,7 @@ get_pty(int *master_fdp, int *slave_fdp, char *slave_name, int uid)
  * get_time - Get current time, monotonic if possible.
  */
 int
-get_time(struct timeval *tv)
+ppp_get_time(struct timeval *tv)
 {
     return gettimeofday(tv, NULL);
 }

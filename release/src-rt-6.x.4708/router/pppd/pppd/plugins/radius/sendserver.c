@@ -17,6 +17,7 @@
 #include <includes.h>
 #include <radiusclient.h>
 #include <pathnames.h>
+#include <signal.h>
 
 static void rc_random_vector (unsigned char *);
 static int rc_check_reply (AUTH_HDR *, int, char *, unsigned char *, unsigned char);
@@ -104,7 +105,7 @@ static int rc_pack_list (VALUE_PAIR *vp, char *secret, AUTH_HDR *auth)
 		    memcpy ((char *) passbuf, vp->strvalue, (size_t) length);
 
 		    secretlen = strlen (secret);
-		    vector = (char *)auth->vector;
+		    vector = auth->vector;
 		    for(i = 0; i < padded_length; i += AUTH_VECTOR_LEN) {
 			/* Calculate the MD5 digest*/
 			strcpy ((char *) md5buf, secret);
@@ -200,10 +201,10 @@ int rc_send_server (SEND_DATA *data, char *msg, REQUEST_INFO *info)
 	AUTH_HDR       *auth, *recv_auth;
 	UINT4           auth_ipaddr;
 	char           *server_name;	/* Name of server to query */
-	int             salen;
+	socklen_t       salen;
 	int             result;
 	int             total_length;
-	int             length;
+	socklen_t       length;
 	int             retry_max;
 	int		secretlen;
 	char            secret[MAX_SECRET_LENGTH + 1];
@@ -228,6 +229,7 @@ int rc_send_server (SEND_DATA *data, char *msg, REQUEST_INFO *info)
 	{
 		if (rc_find_server (server_name, &auth_ipaddr, secret) != 0)
 		{
+			memset (secret, '\0', sizeof (secret));
 			return (ERROR_RC);
 		}
 	}
@@ -272,7 +274,7 @@ int rc_send_server (SEND_DATA *data, char *msg, REQUEST_INFO *info)
 		memset((char *) auth->vector, 0, AUTH_VECTOR_LEN);
 		secretlen = strlen (secret);
 		memcpy ((char *) auth + total_length, secret, secretlen);
-		rc_md5_calc (vector, (char *) auth, total_length + secretlen);
+		rc_md5_calc (vector, (unsigned char *) auth, total_length + secretlen);
 		memcpy ((char *) auth->vector, (char *) vector, AUTH_VECTOR_LEN);
 	}
 	else
@@ -302,7 +304,7 @@ int rc_send_server (SEND_DATA *data, char *msg, REQUEST_INFO *info)
 		FD_SET (sockfd, &readfds);
 		if (select (sockfd + 1, &readfds, NULL, NULL, &authtime) < 0)
 		{
-			if (errno == EINTR && !got_sigterm)
+			if (errno == EINTR && !ppp_signaled(SIGTERM))
 				continue;
 			error("rc_send_server: select: %m");
 			memset (secret, '\0', sizeof (secret));
@@ -362,7 +364,7 @@ int rc_send_server (SEND_DATA *data, char *msg, REQUEST_INFO *info)
 	{
 		if ((vp = rc_avpair_get(vp, PW_REPLY_MESSAGE)))
 		{
-			strcat(msg, vp->strvalue);
+			strcat(msg, (char*) vp->strvalue);
 			strcat(msg, "\n");
 			vp = vp->next;
 		}
@@ -428,7 +430,7 @@ static int rc_check_reply (AUTH_HDR *auth, int bufferlen, char *secret,
 	memcpy ((char *) reply_digest, (char *) auth->vector, AUTH_VECTOR_LEN);
 	memcpy ((char *) auth->vector, (char *) vector, AUTH_VECTOR_LEN);
 	memcpy ((char *) auth + totallen, secret, secretlen);
-	rc_md5_calc (calc_digest, (char *) auth, totallen + secretlen);
+	rc_md5_calc (calc_digest, (unsigned char *) auth, totallen + secretlen);
 
 #ifdef DIGEST_DEBUG
 	{
@@ -490,7 +492,7 @@ static void rc_random_vector (unsigned char *vector)
    we use /dev/urandom here, as /dev/random might block and we don't
    need that much randomness. BTW, great idea, Ted!     -lf, 03/18/95	*/
 
-	if ((fd = open(_PATH_DEV_URANDOM, O_RDONLY)) >= 0)
+	if ((fd = open(PPP_PATH_DEV_URANDOM, O_RDONLY)) >= 0)
 	{
 		unsigned char *pos;
 		int readcount;

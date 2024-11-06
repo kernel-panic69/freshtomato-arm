@@ -17,15 +17,21 @@
 static char const RCSID[] =
 "$Id: radattr.c,v 1.2 2004/10/28 00:24:40 paulus Exp $";
 
-#include "pppd.h"
-#include "radiusclient.h"
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <pppd/pppd.h>
+
+#include "radiusclient.h"
 
 extern void (*radius_attributes_hook)(VALUE_PAIR *);
 static void print_attributes(VALUE_PAIR *);
 static void cleanup(void *opaque, int arg);
 
-char pppd_version[] = VERSION;
+char pppd_version[] = PPPD_VERSION;
 
 /**********************************************************************
 * %FUNCTION: plugin_init
@@ -45,11 +51,11 @@ plugin_init(void)
     /* calling cleanup() on link down is problematic because print_attributes()
        is called only after PAP or CHAP authentication, but not when the link
        should go up again for any other reason */
-    add_notifier(&link_down_notifier, cleanup, NULL);
+    ppp_add_notify(NF_LINK_DOWN, cleanup, NULL);
 #endif
 
     /* Just in case... */
-    add_notifier(&exitnotify, cleanup, NULL);
+    ppp_add_notify(NF_EXIT, cleanup, NULL);
     info("RADATTR plugin initialized.");
 }
 
@@ -71,9 +77,12 @@ print_attributes(VALUE_PAIR *vp)
     char name[2048];
     char value[2048];
     int cnt = 0;
+    mode_t old_umask;
 
-    slprintf(fname, sizeof(fname), "/var/run/radattr.%s", ifname);
+    slprintf(fname, sizeof(fname), "/var/run/radattr.%s", ppp_ifname());
+    old_umask = umask(077);
     fp = fopen(fname, "w");
+    umask(old_umask);
     if (!fp) {
 	warn("radattr plugin: Could not open %s for writing: %m", fname);
 	return;
@@ -105,7 +114,7 @@ cleanup(void *opaque, int arg)
 {
     char fname[512];
 
-    slprintf(fname, sizeof(fname), "/var/run/radattr.%s", ifname);
+    slprintf(fname, sizeof(fname), "/var/run/radattr.%s", ppp_ifname());
     (void) remove(fname);
     dbglog("RADATTR plugin removed file %s.", fname);
 }

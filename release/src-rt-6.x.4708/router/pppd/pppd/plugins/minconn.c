@@ -22,7 +22,7 @@
  * 4. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by Paul Mackerras
- *     <paulus@samba.org>".
+ *     <paulus@ozlabs.org>".
  *
  * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
  * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -32,15 +32,28 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+
 #include <stddef.h>
 #include <time.h>
-#include "pppd.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdarg.h>
+#include <sys/types.h>
 
-char pppd_version[] = VERSION;
+#include <pppd/pppd.h>
+#include <pppd/options.h>
+
+#if !defined(SOL2)
+#include <linux/ppp_defs.h>
+#else
+#include <net/ppp_defs.h>
+#endif
+
+char pppd_version[] = PPPD_VERSION;
 
 static int minconnect = 0;
 
-static option_t my_options[] = {
+static struct option my_options[] = {
 	{ "minconnect", o_int, &minconnect,
 	  "Set minimum connect time before idle timeout applies" },
 	{ NULL }
@@ -51,16 +64,16 @@ static int my_get_idle(struct ppp_idle *idle)
 	time_t t;
 
 	if (idle == NULL)
-		return minconnect? minconnect: idle_time_limit;
+		return minconnect ? minconnect: ppp_get_max_idle_time();
 	t = idle->xmit_idle;
 	if (idle->recv_idle < t)
 		t = idle->recv_idle;
-	return idle_time_limit - t;
+	return ppp_get_max_idle_time() - t;
 }
 
 void plugin_init(void)
 {
 	info("plugin_init");
-	add_options(my_options);
+	ppp_add_options(my_options);
 	idle_time_hook = my_get_idle;
 }

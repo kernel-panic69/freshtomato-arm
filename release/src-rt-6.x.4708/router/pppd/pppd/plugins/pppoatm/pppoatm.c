@@ -13,21 +13,27 @@
  *  as published by the Free Software Foundation; either version
  *  2 of the License, or (at your option) any later version.
  */
+
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include "pppd.h"
-#include "pathnames.h"
-#include "fsm.h" /* Needed for lcp.h to include cleanly */
-#include "lcp.h"
 #include <atm.h>
 #include <linux/atmdev.h>
 #include <linux/atmppp.h>
 #include <sys/stat.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
+#include <sys/param.h>
+#include <stdbool.h>
+#include <stdarg.h>
 
-const char pppd_version[] = VERSION;
+#include <pppd/pppd.h>
+#include <pppd/options.h>
+#include <pppd/fsm.h> /* Needed for lcp.h to include cleanly */
+#include <pppd/lcp.h>
+
+
+const char pppd_version[] = PPPD_VERSION;
 
 static struct sockaddr_atmpvc pvcaddr;
 static char *qosstr = NULL;
@@ -38,8 +44,9 @@ static int pppoatm_max_mtu, pppoatm_max_mru;
 static int setdevname_pppoatm(const char *cp, const char **argv, int doit);
 struct channel pppoa_channel;
 static int pppoa_fd = -1;
+static char devnam[MAXNAMELEN];
 
-static option_t pppoa_options[] = {
+static struct option pppoa_options[] = {
 	{ "device name", o_wild, (void *) &setdevname_pppoatm,
 	  "ATM service provider IDs: VPI.VCI",
 	  OPT_DEVNAM | OPT_PRIVFIX | OPT_NOARG  | OPT_A2STRVAL | OPT_STATIC,
@@ -85,7 +92,8 @@ static int setdevname_pppoatm(const char *cp, const char **argv, int doit)
 		return 1;
 
 	memcpy(&pvcaddr, &addr, sizeof pvcaddr);
-	strlcpy(devnam, cp, sizeof devnam);
+	strlcpy(devnam, cp, sizeof(devnam));
+	ppp_set_devnam(devnam);
 	devstat.st_mode = S_IFSOCK;
 	if (the_channel != &pppoa_channel) {
 		the_channel = &pppoa_channel;
@@ -159,7 +167,7 @@ static int connect_pppoatm(void)
 	pppoatm_max_mtu = lcp_allowoptions[0].mru;
 	pppoatm_max_mru = lcp_wantoptions[0].mru;
 	set_line_discipline_pppoatm(fd);
-	strlcpy(ppp_devnam, devnam, sizeof(ppp_devnam));
+	ppp_set_pppdevnam(devnam);
 	pppoa_fd = fd;
 	return fd;
 }
@@ -173,25 +181,25 @@ void plugin_init(void)
 {
 #ifdef linux
 	extern int new_style_driver;	/* From sys-linux.c */
-	if (!ppp_available() && !new_style_driver)
+	if (!ppp_check_kernel_support() && !new_style_driver)
 		fatal("Kernel doesn't support ppp_generic - "
 		    "needed for PPPoATM");
 #else
 	fatal("No PPPoATM support on this OS");
 #endif
-	add_options(pppoa_options);
+	ppp_add_options(pppoa_options);
 }
 
 struct channel pppoa_channel = {
-    options: pppoa_options,
-    process_extra_options: NULL,
-    check_options: NULL,
-    connect: &connect_pppoatm,
-    disconnect: &disconnect_pppoatm,
-    establish_ppp: &generic_establish_ppp,
-    disestablish_ppp: &generic_disestablish_ppp,
-    send_config: NULL,
-    recv_config: NULL,
-    close: NULL,
-    cleanup: NULL
+    .options = pppoa_options,
+    .process_extra_options = NULL,
+    .check_options = NULL,
+    .connect = &connect_pppoatm,
+    .disconnect = &disconnect_pppoatm,
+    .establish_ppp = &ppp_generic_establish,
+    .disestablish_ppp = &ppp_generic_disestablish,
+    .send_config = NULL,
+    .recv_config = NULL,
+    .close = NULL,
+    .cleanup = NULL
 };

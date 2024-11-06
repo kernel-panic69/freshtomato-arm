@@ -26,27 +26,33 @@
 static char const RCSID[] =
 "$Id: radius.c,v 1.32 2008/05/26 09:18:08 paulus Exp $";
 
-#include "pppd.h"
-#include "chap-new.h"
-#ifdef CHAPMS
-#include "chap_ms.h"
-#ifdef MPPE
-#include "md5.h"
-#endif
-#endif
-#include "radiusclient.h"
-#include "fsm.h"
-#include "ipcp.h"
 #include <syslog.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/param.h>
 #include <string.h>
 #include <netinet/in.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <stdbool.h>
+
+#include <pppd/pppd.h>
+#include <pppd/options.h>
+#include <pppd/chap.h>
+#include <pppd/upap.h>
+#ifdef PPP_WITH_CHAPMS
+#include <pppd/chap_ms.h>
+#ifdef PPP_WITH_MPPE
+#include <pppd/mppe.h>
+#endif
+#endif
+#include <pppd/crypto.h>
+#include <pppd/fsm.h>
+#include <pppd/ipcp.h>
+
+#include "radiusclient.h"
 
 #define BUF_LEN 1024
-
-#define MD5_HASH_SIZE	16
 
 #define MSDNS 1
 
@@ -68,31 +74,23 @@ static option_t Options[] = {
     { NULL }
 };
 
-static int radius_secret_check(void);
-static int radius_pap_auth(char *user,
-			   char *passwd,
-			   char **msgp,
-			   struct wordlist **paddrs,
-			   struct wordlist **popts);
-static int radius_chap_verify(char *user, char *ourname, int id,
-			      struct chap_digest_type *digest,
-			      unsigned char *challenge,
-			      unsigned char *response,
-			      char *message, int message_space);
+static pap_check_hook_fn radius_secret_check;
+static pap_auth_hook_fn radius_pap_auth;
+static chap_verify_hook_fn radius_chap_verify;
 
 static void radius_ip_up(void *opaque, int arg);
 static void radius_ip_down(void *opaque, int arg);
-static void make_username_realm(char *user);
+static void make_username_realm(const char *user);
 static int radius_setparams(VALUE_PAIR *vp, char *msg, REQUEST_INFO *req_info,
 			    struct chap_digest_type *digest,
 			    unsigned char *challenge,
 			    char *message, int message_space);
 static void radius_choose_ip(u_int32_t *addrp);
 static int radius_init(char *msg);
-static int get_client_port(char *ifname);
+static int get_client_port(const char *ifname);
 static int radius_allowed_address(u_int32_t addr);
 static void radius_acct_interim(void *);
-#ifdef MPPE
+#ifdef PPP_WITH_MPPE
 static int radius_setmppekeys(VALUE_PAIR *vp, REQUEST_INFO *req_info,
 			      unsigned char *);
 static int radius_setmppekeys2(VALUE_PAIR *vp, REQUEST_INFO *req_info);
@@ -107,7 +105,6 @@ static int radius_setmppekeys2(VALUE_PAIR *vp, REQUEST_INFO *req_info);
 #endif
 
 struct radius_state {
-    int accounting_started;
     int initialized;
     int client_port;
     int choose_ip;
@@ -136,7 +133,7 @@ void (*radius_pre_auth_hook)(char const *user,
 
 static struct radius_state rstate;
 
-char pppd_version[] = VERSION;
+char pppd_version[] = PPPD_VERSION;
 
 /**********************************************************************
 * %FUNCTION: plugin_init
@@ -159,15 +156,15 @@ plugin_init(void)
     ip_choose_hook = radius_choose_ip;
     allowed_address_hook = radius_allowed_address;
 
-    add_notifier(&ip_up_notifier, radius_ip_up, NULL);
-    add_notifier(&ip_down_notifier, radius_ip_down, NULL);
+    ppp_add_notify(NF_IP_UP, radius_ip_up, NULL);
+    ppp_add_notify(NF_IP_DOWN, radius_ip_down, NULL);
 
     memset(&rstate, 0, sizeof(rstate));
 
     strlcpy(rstate.config_file, "/etc/radiusclient/radiusclient.conf",
 	    sizeof(rstate.config_file));
 
-    add_options(Options);
+    ppp_add_options(Options);
 
     info("RADIUS plugin initialized.");
 }
@@ -202,7 +199,7 @@ add_avp(char **argv)
 *  1 -- we are ALWAYS willing to supply a secret. :-)
 * %DESCRIPTION:
 * Tells pppd that we will try to authenticate the peer, and not to
-* worry about looking in /etc/ppp/*-secrets
+* worry about looking in *-secrets file(s)
 ***********************************************************************/
 static int
 radius_secret_check(void)
@@ -251,6 +248,8 @@ radius_pap_auth(char *user,
     UINT4 av_type;
     int result;
     static char radius_msg[BUF_LEN];
+    const char *remote_number;
+    const char *ipparam;
 
     radius_msg[0] = 0;
     *msgp = radius_msg;
@@ -273,7 +272,7 @@ radius_pap_auth(char *user,
 
     /* Hack... the "port" is the ppp interface number.  Should really be
        the tty */
-    rstate.client_port = get_client_port(portnummap ? devnam : ifname);
+    rstate.client_port = get_client_port(portnummap ? ppp_devnam() : ppp_ifname());
 
     av_type = PW_FRAMED;
     rc_avpair_add(&send, PW_SERVICE_TYPE, &av_type, 0, VENDOR_NONE);
@@ -283,7 +282,9 @@ radius_pap_auth(char *user,
 
     rc_avpair_add(&send, PW_USER_NAME, rstate.user , 0, VENDOR_NONE);
     rc_avpair_add(&send, PW_USER_PASSWORD, passwd, 0, VENDOR_NONE);
-    if (*remote_number) {
+    remote_number = ppp_get_remote_number();
+    ipparam = ppp_ipparam();
+    if (remote_number) {
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, remote_number, 0,
 		       VENDOR_NONE);
     } else if (ipparam)
@@ -342,12 +343,14 @@ radius_chap_verify(char *user, char *ourname, int id,
     int result;
     int challenge_len, response_len;
     u_char cpassword[MAX_RESPONSE_LEN + 1];
-#ifdef MPPE
+#ifdef PPP_WITH_MPPE
     /* Need the RADIUS secret and Request Authenticator to decode MPPE */
     REQUEST_INFO request_info, *req_info = &request_info;
 #else
     REQUEST_INFO *req_info = NULL;
 #endif
+    const char *remote_number;
+    const char *ipparam;
 
     challenge_len = *challenge++;
     response_len = *response++;
@@ -361,7 +364,7 @@ radius_chap_verify(char *user, char *ourname, int id,
 
     /* return error for types we can't handle */
     if ((digest->code != CHAP_MD5)
-#ifdef CHAPMS
+#ifdef PPP_WITH_CHAPMS
 	&& (digest->code != CHAP_MICROSOFT)
 	&& (digest->code != CHAP_MICROSOFT_V2)
 #endif
@@ -373,7 +376,7 @@ radius_chap_verify(char *user, char *ourname, int id,
     /* Put user with potentially realm added in rstate.user */
     if (!rstate.done_chap_once) {
 	make_username_realm(user);
-	rstate.client_port = get_client_port (portnummap ? devnam : ifname);
+	rstate.client_port = get_client_port (portnummap ? ppp_devnam() : ppp_ifname());
 	if (radius_pre_auth_hook) {
 	    radius_pre_auth_hook(rstate.user,
 				 &rstate.authserver,
@@ -397,18 +400,18 @@ radius_chap_verify(char *user, char *ourname, int id,
     switch (digest->code) {
     case CHAP_MD5:
 	/* CHAP-Challenge and CHAP-Password */
-	if (response_len != MD5_HASH_SIZE)
+	if (response_len != MD5_DIGEST_LENGTH)
 	    return 0;
 	cpassword[0] = id;
-	memcpy(&cpassword[1], response, MD5_HASH_SIZE);
+	memcpy(&cpassword[1], response, MD5_DIGEST_LENGTH);
 
 	rc_avpair_add(&send, PW_CHAP_CHALLENGE,
 		      challenge, challenge_len, VENDOR_NONE);
 	rc_avpair_add(&send, PW_CHAP_PASSWORD,
-		      cpassword, MD5_HASH_SIZE + 1, VENDOR_NONE);
+		      cpassword, MD5_DIGEST_LENGTH + 1, VENDOR_NONE);
 	break;
 
-#ifdef CHAPMS
+#ifdef PPP_WITH_CHAPMS
     case CHAP_MICROSOFT:
     {
 	/* MS-CHAP-Challenge and MS-CHAP-Response */
@@ -450,7 +453,9 @@ radius_chap_verify(char *user, char *ourname, int id,
 #endif
     }
 
-    if (*remote_number) {
+    remote_number = ppp_get_remote_number();
+    ipparam = ppp_ipparam();
+    if (remote_number) {
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, remote_number, 0,
 		       VENDOR_NONE);
     } else if (ipparam)
@@ -503,7 +508,7 @@ radius_chap_verify(char *user, char *ourname, int id,
 * then the default realm from the radiusclient config file is added.
 ***********************************************************************/
 static void
-make_username_realm(char *user)
+make_username_realm(const char *user)
 {
     char *default_realm;
 
@@ -540,7 +545,7 @@ radius_setparams(VALUE_PAIR *vp, char *msg, REQUEST_INFO *req_info,
 {
     u_int32_t remote;
     int ms_chap2_success = 0;
-#ifdef MPPE
+#ifdef PPP_WITH_MPPE
     int mppe_enc_keys = 0;	/* whether or not these were received */
     int mppe_enc_policy = 0;
     int mppe_enc_types = 0;
@@ -589,30 +594,28 @@ radius_setparams(VALUE_PAIR *vp, char *msg, REQUEST_INFO *req_info,
 
 	    case PW_SESSION_TIMEOUT:
 		/* Session timeout */
-		maxconnect = vp->lvalue;
+		ppp_set_max_connect_time(vp->lvalue);
 		break;
            case PW_FILTER_ID:
                /* packet filter, will be handled via ip-(up|down) script */
-               script_setenv("RADIUS_FILTER_ID", vp->strvalue, 1);
+               ppp_script_setenv("RADIUS_FILTER_ID", (char*) vp->strvalue, 1);
                break;
            case PW_FRAMED_ROUTE:
                /* route, will be handled via ip-(up|down) script */
-               script_setenv("RADIUS_FRAMED_ROUTE", vp->strvalue, 1);
+               ppp_script_setenv("RADIUS_FRAMED_ROUTE", (char*) vp->strvalue, 1);
                break;
            case PW_IDLE_TIMEOUT:
                /* idle parameter */
-               idle_time_limit = vp->lvalue;
+               ppp_set_max_idle_time(vp->lvalue);
                break;
-#ifdef MAXOCTETS
 	    case PW_SESSION_OCTETS_LIMIT:
 		/* Session traffic limit */
-		maxoctets = vp->lvalue;
+		ppp_set_session_limit(vp->lvalue);
 		break;
 	    case PW_OCTETS_DIRECTION:
 		/* Session traffic limit direction check */
-		maxoctets_dir = ( vp->lvalue > 4 ) ? 0 : vp->lvalue ;
+		ppp_set_session_limit_dir(vp->lvalue);
 		break;
-#endif
 	    case PW_ACCT_INTERIM_INTERVAL:
 		/* Send accounting updates every few seconds */
 		rstate.acct_interim_interval = vp->lvalue;
@@ -632,7 +635,7 @@ radius_setparams(VALUE_PAIR *vp, char *msg, REQUEST_INFO *req_info,
 		} else if (remote != 0xfffffffe) {
 		    /* 0xfffffffe means NAS should select an ip address */
 		    remote = htonl(vp->lvalue);
-		    if (bad_ip_adrs (remote)) {
+		    if (ppp_bad_ip_addr (remote)) {
 			slprintf(msg, BUF_LEN, "RADIUS: bad remote IP address %I for %s",
 				 remote, rstate.user);
 			return -1;
@@ -646,31 +649,32 @@ radius_setparams(VALUE_PAIR *vp, char *msg, REQUEST_INFO *req_info,
                 break;
 	    case PW_CLASS:
 		/* Save Class attribute to pass it in accounting request */
-		if (vp->lvalue <= MAXCLASSLEN) {
+		// if (vp->lvalue <= MAXCLASSLEN) { // <- Attribute could be this big, but vp->strvalue is limited to AUTH_STRING_LEN characters
+		if (vp->lvalue <= AUTH_STRING_LEN) {
 		    rstate.class_len=vp->lvalue;
 		    memcpy(rstate.class, vp->strvalue, rstate.class_len);
 		} /* else too big for our buffer - ignore it */
 		break;
 	    case PW_FRAMED_MTU:
-		netif_set_mtu(rstate.client_port,MIN(netif_get_mtu(rstate.client_port),vp->lvalue));
+		ppp_set_mtu(rstate.client_port,MIN(ppp_get_mtu(rstate.client_port),vp->lvalue));
 		break;
 	    }
 
 
 	} else if (vp->vendorcode == VENDOR_MICROSOFT) {
-#ifdef CHAPMS
+#ifdef PPP_WITH_CHAPMS
 	    switch (vp->attribute) {
 	    case PW_MS_CHAP2_SUCCESS:
-		if ((vp->lvalue != 43) || strncmp(vp->strvalue + 1, "S=", 2)) {
+		if ((vp->lvalue != 43) || strncmp((char*) vp->strvalue + 1, "S=", 2)) {
 		    slprintf(msg,BUF_LEN,"RADIUS: bad MS-CHAP2-Success packet");
 		    return -1;
 		}
 		if (message != NULL)
-		    strlcpy(message, vp->strvalue + 1, message_space);
+		    strlcpy(message, (char*) vp->strvalue + 1, message_space);
 		ms_chap2_success = 1;
 		break;
 
-#ifdef MPPE
+#ifdef PPP_WITH_MPPE
 	    case PW_MS_CHAP_MPPE_KEYS:
 		if (radius_setmppekeys(vp, req_info, challenge) < 0) {
 		    slprintf(msg, BUF_LEN,
@@ -700,7 +704,7 @@ radius_setparams(VALUE_PAIR *vp, char *msg, REQUEST_INFO *req_info,
 		mppe_enc_types = vp->lvalue;	/* save for later */
 		break;
 
-#endif /* MPPE */
+#endif /* PPP_WITH_MPPE */
 #ifdef MSDNS
 	    case PW_MS_PRIMARY_DNS_SERVER:
 		ao->dnsaddr[0] = htonl(vp->lvalue);
@@ -728,7 +732,7 @@ radius_setparams(VALUE_PAIR *vp, char *msg, REQUEST_INFO *req_info,
 		break;
 #endif /* MSDNS */
 	    }
-#endif /* CHAPMS */
+#endif /* PPP_WITH_CHAPMS */
 	}
 	vp = vp->next;
     }
@@ -737,23 +741,24 @@ radius_setparams(VALUE_PAIR *vp, char *msg, REQUEST_INFO *req_info,
     if (digest && (digest->code == CHAP_MICROSOFT_V2) && !ms_chap2_success)
 	return -1;
 
-#ifdef MPPE
+#ifdef PPP_WITH_MPPE
     /*
      * Require both policy and key attributes to indicate a valid key.
      * Note that if the policy value was '0' we don't set the key!
      */
     if (mppe_enc_policy && mppe_enc_keys) {
-	mppe_keys_set = 1;
 	/* Set/modify allowed encryption types. */
 	if (mppe_enc_types)
-	    set_mppe_enc_types(mppe_enc_policy, mppe_enc_types);
+	    mppe_set_enc_types(mppe_enc_policy, mppe_enc_types);
+	return 0;
     }
+    mppe_clear_keys();
 #endif
 
     return 0;
 }
 
-#ifdef MPPE
+#ifdef PPP_WITH_MPPE
 /**********************************************************************
 * %FUNCTION: radius_setmppekeys
 * %ARGUMENTS:
@@ -770,9 +775,12 @@ radius_setmppekeys(VALUE_PAIR *vp, REQUEST_INFO *req_info,
 		   unsigned char *challenge)
 {
     int i;
-    MD5_CTX Context;
-    u_char  plain[32];
-    u_char  buf[16];
+    int status = 0;
+    PPP_MD_CTX *ctx;
+    unsigned char plain[32];
+    unsigned char buf[MD5_DIGEST_LENGTH];
+    unsigned int  buflen;
+
 
     if (vp->lvalue != 32) {
 	error("RADIUS: Incorrect attribute length (%d) for MS-CHAP-MPPE-Keys",
@@ -782,30 +790,70 @@ radius_setmppekeys(VALUE_PAIR *vp, REQUEST_INFO *req_info,
 
     memcpy(plain, vp->strvalue, sizeof(plain));
 
-    MD5_Init(&Context);
-    MD5_Update(&Context, req_info->secret, strlen(req_info->secret));
-    MD5_Update(&Context, req_info->request_vector, AUTH_VECTOR_LEN);
-    MD5_Final(buf, &Context);
+    ctx = PPP_MD_CTX_new();
+    if (ctx) {
 
-    for (i = 0; i < 16; i++)
-	plain[i] ^= buf[i];
+        if (PPP_DigestInit(ctx, PPP_md5())) {
 
-    MD5_Init(&Context);
-    MD5_Update(&Context, req_info->secret, strlen(req_info->secret));
-    MD5_Update(&Context, vp->strvalue, 16);
-    MD5_Final(buf, &Context);
+            if (PPP_DigestUpdate(ctx, req_info->secret, strlen(req_info->secret))) {
 
-    for(i = 0; i < 16; i++)
-	plain[i + 16] ^= buf[i];
+                if (PPP_DigestUpdate(ctx, req_info->request_vector, AUTH_VECTOR_LEN)) {
 
-    /*
-     * Annoying.  The "key" returned is just the NTPasswordHashHash, which
-     * the NAS (us) doesn't need; we only need the start key.  So we have
-     * to generate the start key, sigh.  NB: We do not support the LM-Key.
-     */
-    mppe_set_keys(challenge, &plain[8]);
+                    buflen = sizeof(buf);
+                    if (PPP_DigestFinal(ctx, buf, &buflen)) {
 
-    return 0;    
+                        status = 1;
+                    }
+                }
+            }
+        }
+        PPP_MD_CTX_free(ctx);
+    }
+
+    if (status) {
+
+        for (i = 0; i < MD5_DIGEST_LENGTH; i++) {
+            plain[i] ^= buf[i];
+        }
+
+        status = 0;
+        ctx = PPP_MD_CTX_new();
+        if (ctx) {
+
+            if (PPP_DigestInit(ctx, PPP_md5())) {
+
+                if (PPP_DigestUpdate(ctx, req_info->secret, strlen(req_info->secret))) {
+
+                    if (PPP_DigestUpdate(ctx, vp->strvalue, 16)) {
+
+                        buflen = MD5_DIGEST_LENGTH;
+                        if (PPP_DigestFinal(ctx, buf, &buflen)) {
+
+                            status = 1;
+                        }
+                    }
+                }
+            }
+            PPP_MD_CTX_free(ctx);
+        }
+
+        if (status) {
+
+            for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
+                plain[i + 16] ^= buf[i];
+            }
+
+            /*
+             * Annoying.  The "key" returned is just the NTPasswordHashHash, which
+             * the NAS (us) doesn't need; we only need the start key.  So we have
+             * to generate the start key, sigh.  NB: We do not support the LM-Key.
+             */
+            mppe_set_chapv1(challenge, &plain[8]);
+            return 0;
+        }
+    }
+
+    return -1;
 }
 
 /**********************************************************************
@@ -823,11 +871,13 @@ static int
 radius_setmppekeys2(VALUE_PAIR *vp, REQUEST_INFO *req_info)
 {
     int i;
-    MD5_CTX Context;
-    u_char  *salt = vp->strvalue;
-    u_char  *crypt = vp->strvalue + 2;
-    u_char  plain[32];
-    u_char  buf[MD5_HASH_SIZE];
+    int status = 0;
+    PPP_MD_CTX *ctx;
+    unsigned char *salt = vp->strvalue;
+    unsigned char *crypt = vp->strvalue + 2;
+    unsigned char plain[32];
+    unsigned char buf[MD5_DIGEST_LENGTH];
+    unsigned int  buflen;
     char    *type = "Send";
 
     if (vp->attribute == PW_MS_MPPE_RECV_KEY)
@@ -846,36 +896,78 @@ radius_setmppekeys2(VALUE_PAIR *vp, REQUEST_INFO *req_info)
 
     memcpy(plain, crypt, 32);
 
-    MD5_Init(&Context);
-    MD5_Update(&Context, req_info->secret, strlen(req_info->secret));
-    MD5_Update(&Context, req_info->request_vector, AUTH_VECTOR_LEN);
-    MD5_Update(&Context, salt, 2);
-    MD5_Final(buf, &Context);
-
-    for (i = 0; i < 16; i++)
-	plain[i] ^= buf[i];
-
-    if (plain[0] != sizeof(mppe_send_key) /* 16 */) {
-	error("RADIUS: Incorrect key length (%d) for MS-MPPE-%s-Key attribute",
-	      (int) plain[0], type);
+    ctx = PPP_MD_CTX_new();
+    if (!ctx) {
+	error("RADIUS: Error creating PPP_MD_CTX for MS-MPPE-%s-Key attribute", type);
 	return -1;
     }
 
-    MD5_Init(&Context);
-    MD5_Update(&Context, req_info->secret, strlen(req_info->secret));
-    MD5_Update(&Context, crypt, 16);
-    MD5_Final(buf, &Context);
+    buflen = sizeof(buf);
+    if (!PPP_DigestInit(ctx, PPP_md5())) {
+	error("RADIUS: Error setting hash algorithm to MD5 for MS-MPPE-%s-Key attribute", type);
+    } else if (!PPP_DigestUpdate(ctx, req_info->secret, strlen(req_info->secret))) {
+	error("RADIUS: Error mixing in radius secret for MS-MPPE-%s-Key attribute", type);
+    } else if (!PPP_DigestUpdate(ctx, req_info->request_vector, AUTH_VECTOR_LEN)) {
+	error("RADIUS: Error mixing in request vector for MS-MPPE-%s-Key attribute", type);
+    } else if (!PPP_DigestUpdate(ctx, salt, 2)) {
+	error("RADIUS: Error mixing in salt for MS-MPPE-%s-Key attribute", type);
+    } else if (!PPP_DigestFinal(ctx, buf, &buflen)) {
+	error("RADIUS: Error finalizing key buffer for MS-MPPE-%s-Key attribute", type);
+    } else {
+	status = 1;
+    }
+
+    PPP_MD_CTX_free(ctx);
+
+    if (!status)
+	return -1;
+
+    for (i = 0; i < 16; i++) {
+	plain[i] ^= buf[i];
+    }
+
+    if (plain[0] != 16) {
+	error("RADIUS: Incorrect key length (%d) for MS-MPPE-%s-Key attribute",
+		(int) plain[0], type);
+	return -1;
+    }
+
+    status = 0;
+    ctx = PPP_MD_CTX_new();
+    if (!ctx) {
+	error("RADIUS: Error creating PPP_MD_CTX for MS-MPPE-%s-Key(2) attribute", type);
+	return -1;
+    }
+
+    buflen = sizeof(buf);
+
+    if (!PPP_DigestInit(ctx, PPP_md5())) {
+	error("RADIUS: Error setting hash algorithm to MD5 for MS-MPPE-%s-Key(2) attribute", type);
+    } else if (!PPP_DigestUpdate(ctx, req_info->secret, strlen(req_info->secret))) {
+	error("RADIUS: Error mixing in radius secret for MS-MPPE-%s-Key(2) attribute", type);
+    } else if (!PPP_DigestUpdate(ctx, crypt, 16)) {
+	error("RADIUS: Error mixing in crypt vector for MS-MPPE-%s-Key(2) attribute", type);
+    } else if (!PPP_DigestFinal(ctx, buf, &buflen)) {
+	error("RADIUS: Error finalizing key buffer for MS-MPPE-%s-Key(2) attribute", type);
+    } else {
+	status = 1;
+    }
+
+    PPP_MD_CTX_free(ctx);
+
+    if (!status)
+	return -1;
 
     plain[16] ^= buf[0]; /* only need the first byte */
 
-    if (vp->attribute == PW_MS_MPPE_SEND_KEY)
-	memcpy(mppe_send_key, plain + 1, 16);
-    else
-	memcpy(mppe_recv_key, plain + 1, 16);
-
+    if (vp->attribute == PW_MS_MPPE_SEND_KEY) {
+	mppe_set_keys(plain + 1, NULL, 16);
+    } else {
+	mppe_set_keys(NULL, plain + 1, 16);
+    }
     return 0;
 }
-#endif /* MPPE */
+#endif /* PPP_WITH_MPPE */
 
 /**********************************************************************
 * %FUNCTION: radius_acct_start
@@ -894,6 +986,8 @@ radius_acct_start(void)
     VALUE_PAIR *send = NULL;
     ipcp_options *ho = &ipcp_hisoptions[0];
     u_int32_t hisaddr;
+    const char *remote_number;
+    const char *ipparam;
 
     if (!rstate.initialized) {
 	return;
@@ -921,7 +1015,9 @@ radius_acct_start(void)
     av_type = PW_PPP;
     rc_avpair_add(&send, PW_FRAMED_PROTOCOL, &av_type, 0, VENDOR_NONE);
 
-    if (*remote_number) {
+    remote_number = ppp_get_remote_number();
+    ipparam = ppp_ipparam();
+    if (remote_number) {
 	rc_avpair_add(&send, PW_CALLING_STATION_ID,
 		       remote_number, 0, VENDOR_NONE);
     } else if (ipparam)
@@ -931,7 +1027,7 @@ radius_acct_start(void)
     rc_avpair_add(&send, PW_ACCT_AUTHENTIC, &av_type, 0, VENDOR_NONE);
 
 
-    av_type = ( using_pty ? PW_VIRTUAL : ( sync_serial ? PW_SYNC : PW_ASYNC ) );
+    av_type = ( ppp_using_pty() ? PW_VIRTUAL : ( ppp_sync_serial() ? PW_SYNC : PW_ASYNC ) );
     rc_avpair_add(&send, PW_NAS_PORT_TYPE, &av_type, 0, VENDOR_NONE);
 
     hisaddr = ho->hisaddr;
@@ -955,12 +1051,11 @@ radius_acct_start(void)
 	/* RADIUS server could be down so make this a warning */
 	syslog(LOG_WARNING,
 		"Accounting START failed for %s", rstate.user);
-    } else {
-	rstate.accounting_started = 1;
-	/* Kick off periodic accounting reports */
-	if (rstate.acct_interim_interval) {
-	    TIMEOUT(radius_acct_interim, NULL, rstate.acct_interim_interval);
-	}
+    }
+
+    /* Kick off periodic accounting reports */
+    if (rstate.acct_interim_interval) {
+	ppp_timeout(radius_acct_interim, NULL, rstate.acct_interim_interval, 0);
     }
 }
 
@@ -981,19 +1076,17 @@ radius_acct_stop(void)
     ipcp_options *ho = &ipcp_hisoptions[0];
     u_int32_t hisaddr;
     int result;
+    const char *remote_number;
+    const char *ipparam;
+    ppp_link_stats_st stats;
 
     if (!rstate.initialized) {
 	return;
     }
 
-    if (!rstate.accounting_started) {
-	return;
-    }
-
     if (rstate.acct_interim_interval)
-	UNTIMEOUT(radius_acct_interim, NULL);
+	ppp_untimeout(radius_acct_interim, NULL);
 
-    rstate.accounting_started = 0;
     rc_avpair_add(&send, PW_ACCT_SESSION_ID, rstate.session_id,
 		   0, VENDOR_NONE);
 
@@ -1015,38 +1108,53 @@ radius_acct_stop(void)
     av_type = PW_RADIUS;
     rc_avpair_add(&send, PW_ACCT_AUTHENTIC, &av_type, 0, VENDOR_NONE);
 
+    if (ppp_get_link_stats(&stats)) {
 
-    if (link_stats_valid) {
-	av_type = link_connect_time;
+	av_type = ppp_get_link_uptime();
 	rc_avpair_add(&send, PW_ACCT_SESSION_TIME, &av_type, 0, VENDOR_NONE);
 
-	av_type = link_stats.bytes_out;
+	av_type = stats.bytes_out & 0xFFFFFFFF;
 	rc_avpair_add(&send, PW_ACCT_OUTPUT_OCTETS, &av_type, 0, VENDOR_NONE);
 
-	av_type = link_stats.bytes_in;
+	if (stats.bytes_out > 0xFFFFFFFF) {
+	    av_type = stats.bytes_out >> 32;
+	    rc_avpair_add(&send, PW_ACCT_OUTPUT_GIGAWORDS, &av_type, 0, VENDOR_NONE);
+	}
+
+	av_type = stats.bytes_in & 0xFFFFFFFF;
 	rc_avpair_add(&send, PW_ACCT_INPUT_OCTETS, &av_type, 0, VENDOR_NONE);
 
-	av_type = link_stats.pkts_out;
+	if (stats.bytes_in > 0xFFFFFFFF) {
+	    av_type = stats.bytes_in >> 32;
+	    rc_avpair_add(&send, PW_ACCT_INPUT_GIGAWORDS, &av_type, 0, VENDOR_NONE);
+	}
+
+	av_type = stats.pkts_out;
 	rc_avpair_add(&send, PW_ACCT_OUTPUT_PACKETS, &av_type, 0, VENDOR_NONE);
 
-	av_type = link_stats.pkts_in;
+	av_type = stats.pkts_in;
 	rc_avpair_add(&send, PW_ACCT_INPUT_PACKETS, &av_type, 0, VENDOR_NONE);
     }
 
-    if (*remote_number) {
+    remote_number = ppp_get_remote_number();
+    ipparam = ppp_ipparam();
+    if (remote_number) {
 	rc_avpair_add(&send, PW_CALLING_STATION_ID,
 		       remote_number, 0, VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
 
-    av_type = ( using_pty ? PW_VIRTUAL : ( sync_serial ? PW_SYNC : PW_ASYNC ) );
+    av_type = ( ppp_using_pty() ? PW_VIRTUAL : ( ppp_sync_serial() ? PW_SYNC : PW_ASYNC ) );
     rc_avpair_add(&send, PW_NAS_PORT_TYPE, &av_type, 0, VENDOR_NONE);
 
     av_type = PW_NAS_ERROR;
-    switch( status ) {
+    switch( ppp_status() ) {
 	case EXIT_OK:
-	case EXIT_USER_REQUEST:
 	    av_type = PW_USER_REQUEST;
+	    break;
+
+	case EXIT_USER_REQUEST:
+	    av_type = PW_ADMIN_RESET;
 	    break;
 
 	case EXIT_HANGUP:
@@ -1081,11 +1189,9 @@ radius_acct_stop(void)
 	    av_type = PW_ACCT_SESSION_TIMEOUT;
 	    break;
 	    
-#ifdef MAXOCTETS
 	case EXIT_TRAFFIC_LIMIT:
 	    av_type = PW_NAS_REQUEST;
 	    break;
-#endif
 
 	default:
 	    av_type = PW_NAS_ERROR;
@@ -1133,12 +1239,11 @@ radius_acct_interim(void *ignored)
     ipcp_options *ho = &ipcp_hisoptions[0];
     u_int32_t hisaddr;
     int result;
+    const char *remote_number;
+    const char *ipparam;
+    ppp_link_stats_st stats;
 
     if (!rstate.initialized) {
-	return;
-    }
-
-    if (!rstate.accounting_started) {
 	return;
     }
 
@@ -1163,35 +1268,43 @@ radius_acct_interim(void *ignored)
     av_type = PW_RADIUS;
     rc_avpair_add(&send, PW_ACCT_AUTHENTIC, &av_type, 0, VENDOR_NONE);
 
-    /* Update link stats */
-    update_link_stats(0);
+    if (ppp_get_link_stats(&stats)) {
 
-    if (link_stats_valid) {
-	link_stats_valid = 0; /* Force later code to update */
-
-	av_type = link_connect_time;
+	av_type = ppp_get_link_uptime();
 	rc_avpair_add(&send, PW_ACCT_SESSION_TIME, &av_type, 0, VENDOR_NONE);
 
-	av_type = link_stats.bytes_out;
+	av_type = stats.bytes_out & 0xFFFFFFFF;
 	rc_avpair_add(&send, PW_ACCT_OUTPUT_OCTETS, &av_type, 0, VENDOR_NONE);
 
-	av_type = link_stats.bytes_in;
+	if (stats.bytes_out > 0xFFFFFFFF) {
+	    av_type = stats.bytes_out >> 32;
+	    rc_avpair_add(&send, PW_ACCT_OUTPUT_GIGAWORDS, &av_type, 0, VENDOR_NONE);
+	}
+
+	av_type = stats.bytes_in & 0xFFFFFFFF;
 	rc_avpair_add(&send, PW_ACCT_INPUT_OCTETS, &av_type, 0, VENDOR_NONE);
 
-	av_type = link_stats.pkts_out;
+	if (stats.bytes_in > 0xFFFFFFFF) {
+	    av_type = stats.bytes_in >> 32;
+	    rc_avpair_add(&send, PW_ACCT_INPUT_GIGAWORDS, &av_type, 0, VENDOR_NONE);
+	}
+
+	av_type = stats.pkts_out;
 	rc_avpair_add(&send, PW_ACCT_OUTPUT_PACKETS, &av_type, 0, VENDOR_NONE);
 
-	av_type = link_stats.pkts_in;
+	av_type = stats.pkts_in;
 	rc_avpair_add(&send, PW_ACCT_INPUT_PACKETS, &av_type, 0, VENDOR_NONE);
     }
 
-    if (*remote_number) {
+    remote_number = ppp_get_remote_number();
+    ipparam = ppp_ipparam();
+    if (remote_number) {
 	rc_avpair_add(&send, PW_CALLING_STATION_ID,
 		       remote_number, 0, VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
 
-    av_type = ( using_pty ? PW_VIRTUAL : ( sync_serial ? PW_SYNC : PW_ASYNC ) );
+    av_type = ( ppp_using_pty() ? PW_VIRTUAL : ( ppp_sync_serial() ? PW_SYNC : PW_ASYNC ) );
     rc_avpair_add(&send, PW_NAS_PORT_TYPE, &av_type, 0, VENDOR_NONE);
 
     hisaddr = ho->hisaddr;
@@ -1217,7 +1330,7 @@ radius_acct_interim(void *ignored)
     rc_avpair_free(send);
 
     /* Schedule another one */
-    TIMEOUT(radius_acct_interim, NULL, rstate.acct_interim_interval);
+    ppp_timeout(radius_acct_interim, NULL, rstate.acct_interim_interval, 0);
 }
 
 /**********************************************************************
@@ -1314,7 +1427,7 @@ radius_init(char *msg)
 *  Extracts the port number from the interface name
 ***********************************************************************/
 static int
-get_client_port(char *ifname)
+get_client_port(const char *ifname)
 {
     int port;
     if (sscanf(ifname, "ppp%d", &port) == 1) {

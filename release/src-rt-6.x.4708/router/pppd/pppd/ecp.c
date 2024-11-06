@@ -46,7 +46,7 @@
  * 3. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by Paul Mackerras
- *     <paulus@samba.org>".
+ *     <paulus@ozlabs.org>".
  *
  * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
  * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -57,13 +57,18 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <string.h>
 
-#include "pppd.h"
+#include "pppd-private.h"
+#include "options.h"
 #include "fsm.h"
 #include "ecp.h"
 
-static option_t ecp_option_list[] = {
+static struct option ecp_option_list[] = {
     { "noecp", o_bool, &ecp_protent.enabled_flag,
       "Disable ECP negotiation" },
     { "-ecp", o_bool, &ecp_protent.enabled_flag,

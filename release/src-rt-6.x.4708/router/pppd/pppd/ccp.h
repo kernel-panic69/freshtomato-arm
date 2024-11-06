@@ -17,7 +17,7 @@
  * 3. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by Paul Mackerras
- *     <paulus@samba.org>".
+ *     <paulus@ozlabs.org>".
  *
  * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
  * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -29,6 +29,14 @@
  *
  * $Id: ccp.h,v 1.12 2004/11/04 10:02:26 paulus Exp $
  */
+#ifndef PPP_CCP_H
+#define PPP_CCP_H
+
+#include "pppdconf.h"
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
 
 typedef struct ccp_options {
     bool bsd_compress;		/* do BSD Compress? */
@@ -37,9 +45,9 @@ typedef struct ccp_options {
     bool predictor_2;		/* do Predictor-2? */
     bool deflate_correct;	/* use correct code for deflate? */
     bool deflate_draft;		/* use draft RFC code for deflate? */
-    u_char mppe;		/* MPPE bitfield */
-    u_short bsd_bits;		/* # bits/code for BSD Compress */
-    u_short deflate_size;	/* lg(window size) for Deflate */
+    unsigned char mppe;		/* MPPE bitfield */
+    unsigned short bsd_bits;		/* # bits/code for BSD Compress */
+    unsigned short deflate_size;	/* lg(window size) for Deflate */
     short method;		/* code for chosen compression method */
 } ccp_options;
 
@@ -50,3 +58,9 @@ extern ccp_options ccp_allowoptions[];
 extern ccp_options ccp_hisoptions[];
 
 extern struct protent ccp_protent;
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // PPP_CCP_H

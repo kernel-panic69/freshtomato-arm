@@ -13,14 +13,12 @@
 *
 ***********************************************************************/
 
-#include "config.h"
-
 #include <stdio.h>		/* For FILE */
 #include <sys/types.h>		/* For pid_t */
 #include <ctype.h>
 #include <string.h>
 
-#include "pppd/pppd.h"		/* For error */
+#include <pppd/pppd.h>		/* For error */
 
 /* How do we access raw Ethernet devices? */
 #undef USE_LINUX_PACKET
@@ -233,18 +231,18 @@ typedef struct PPPoEConnectionStruct {
     char *acName;		/* Desired AC name, if any */
     int synchronous;		/* Use synchronous PPP */
     PPPoETag hostUniq;		/* Use Host-Uniq tag */
-    int printACNames;		/* Just print AC names */
-    FILE *debugFile;		/* Debug file for dumping packets */
     int numPADOs;		/* Number of PADO packets received */
     PPPoETag cookie;		/* We have to send this if we get it */
     PPPoETag relayId;		/* Ditto */
     int error;			/* Error packet received */
-    int debug;			/* Set to log packets sent and received */
     int discoveryTimeout;       /* Timeout for discovery packets */
     int discoveryAttempts;      /* Number of discovery attempts */
     int seenMaxPayload;
-    int mtu;			/* Stored MTU */
-    int mru;			/* Stored MRU */
+    int storedmtu;		/* Stored MTU */
+    int storedmru;		/* Stored MRU */
+    int mtu;
+    int mru;
+    char *actualACname;		/* Name of AC we connected to */
 } PPPoEConnection;
 
 /* Structure used to determine acceptable PADO or PADS packet */
@@ -261,9 +259,6 @@ UINT16_t etherType(PPPoEPacket *packet);
 int openInterface(char const *ifname, UINT16_t type, unsigned char *hwaddr);
 int sendPacket(PPPoEConnection *conn, int sock, PPPoEPacket *pkt, int size);
 int receivePacket(int sock, PPPoEPacket *pkt, int *size);
-void fatalSys(char const *str);
-void dumpPacket(FILE *fp, PPPoEPacket *packet, char const *dir);
-void dumpHex(FILE *fp, unsigned char const *buf, int len);
 int parsePacket(PPPoEPacket *packet, ParseFunc *func, void *extra);
 void parseLogErrs(UINT16_t typ, UINT16_t len, unsigned char *data, void *xtra);
 void syncReadFromPPP(PPPoEConnection *conn, PPPoEPacket *packet);
@@ -278,10 +273,12 @@ void initPPP(void);
 void clampMSS(PPPoEPacket *packet, char const *dir, int clampMss);
 UINT16_t computeTCPChecksum(unsigned char *ipHdr, unsigned char *tcpHdr);
 UINT16_t pppFCS16(UINT16_t fcs, unsigned char *cp, int len);
-void discovery(PPPoEConnection *conn);
+void discovery1(PPPoEConnection *conn, int waitWholeTimeoutForPADO);
+void discovery2(PPPoEConnection *conn);
 unsigned char *findTag(PPPoEPacket *packet, UINT16_t tagType,
 		       PPPoETag *tag);
 
+extern int pppoe_verbose;
 void pppoe_printpkt(PPPoEPacket *packet,
 		    void (*printer)(void *, char *, ...), void *arg);
 void pppoe_log_packet(const char *prefix, PPPoEPacket *packet);
@@ -326,3 +323,10 @@ do {\
 #define NOT_UNICAST(e) ((e[0] & 0x01) != 0)
 #define BROADCAST(e) ((e[0] & e[1] & e[2] & e[3] & e[4] & e[5]) == 0xFF)
 #define NOT_BROADCAST(e) ((e[0] & e[1] & e[2] & e[3] & e[4] & e[5]) != 0xFF)
+
+#ifndef MIN
+#define MIN(a, b)	((a) < (b)? (a): (b))
+#endif
+#ifndef MAX
+#define MAX(a, b)	((a) > (b)? (a): (b))
+#endif

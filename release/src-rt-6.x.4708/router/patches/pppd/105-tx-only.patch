@@ -1,0 +1,44 @@
+--- pppd/pppd/auth.c
++++ pppd/pppd/auth.c
+@@ -1307,6 +1307,10 @@
+     if (idle_time_hook != 0) {
+ 	tlim = idle_time_hook(&idle);
+     } else {
++	/* replace itime with idle.xmit_idle for only outgoing traffic is counted */
++	if (tx_only) 
++		itime = idle.xmit_idle;
++	else
+ 	itime = MIN(idle.xmit_idle, idle.recv_idle);
+ 	tlim = ppp_get_max_idle_time() - itime;
+     }
+--- pppd/pppd/options.c
++++ pppd/pppd/options.c
+@@ -85,6 +85,7 @@
+ #if defined(ultrix) || defined(NeXT)
+ char *strdup(char *);
+ #endif
++bool tx_only;			/* idle time counting on tx traffic */
+ 
+ 
+ struct option_value {
+@@ -406,6 +407,10 @@
+     { "mo-timeout", o_int, &maxoctets_timeout,
+       "Check for traffic limit every N seconds", OPT_PRIO | OPT_LLIMIT | 1 },
+ 
++    /* add for tx_only option */
++    { "tx_only", o_bool, &tx_only,
++      "set idle time counting on tx_only or not", 1 },
++
+     /* Dummy option, does nothing */
+     { "noipx", o_bool, &noipx_opt, NULL, OPT_NOPRINT | 1 },
+ 
+--- pppd/pppd/pppd-private.h
++++ pppd/pppd/pppd-private.h
+@@ -90,6 +90,7 @@
+  * Global variables.
+  */
+ 
++extern bool	tx_only;	/* idle time counting on tx traffic */
+ extern int	hungup;		/* Physical layer has disconnected */
+ extern int	ifunit;		/* Interface unit number */
+ extern char	ifname[];	/* Interface name (IFNAMSIZ) */

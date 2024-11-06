@@ -1493,30 +1493,6 @@ iproute2-3.x-clean:
 	-rm -f iproute2-3.x/Config
 	$(call unpatch_files,iproute2-3.x)
 
-rp-pppoe/src/Makefile:
-	$(call patch_files,rp-pppoe)
-	cd rp-pppoe/src && \
-		CFLAGS="$(if $(TCONFIG_OPTIMIZE_SIZE),-Os,-O2) -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-		CPPFLAGS="$(if $(TCONFIG_OPTIMIZE_SIZE),-Os,-O2) -ffunction-sections -fdata-sections" \
-		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
-		$(CONFIGURE) --prefix=/usr --enable-plugin=$(TOP)/pppd --disable-debugging \
-			ac_cv_linux_kernel_pppoe=yes ac_cv_path_PPPD=$(TOP)/pppd
-
-rp-pppoe: rp-pppoe/src/Makefile
-	@$(SEP)
-	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so $(PARALLEL_BUILD)
-
-rp-pppoe-install:
-	install -D rp-pppoe/src/rp-pppoe.so $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
-	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/*.so
-#	install -D rp-pppoe/src/pppoe-relay $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
-#	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
-
-rp-pppoe-clean:
-	-@$(MAKE) -C rp-pppoe/src clean
-	@rm -f rp-pppoe/src/Makefile
-	$(call unpatch_files,rp-pppoe)
-
 libnfnetlink/stamp-h1:
 	cd libnfnetlink $(if $(TCONFIG_BCMARM),&& autoreconf -fsi,) && \
 		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
@@ -1684,6 +1660,40 @@ wsdd2-clean:
 	-@$(MAKE) -C wsdd2 clean
 	$(call unpatch_files,wsdd2)
 
+pppd/Makefile:
+	$(call patch_files,pppd)
+	# do not use 'gc-sections'!
+	cd pppd && autoreconf -fsi && \
+		CFLAGS="$(if $(TCONFIG_OPTIMIZE_SIZE),-Os,-O2) -Wall $(EXTRACFLAGS) $(OPTSIZE_MORE_FLAG)" \
+		CPPFLAGS="$(if $(TCONFIG_OPTIMIZE_SIZE),-Os,-O2)" \
+		enable_microsoft_extensions=yes \
+		with_openssl=no enable_eaptls=no enable_peap=no \
+		with_pam=no with_pcap=no with_srp=no \
+		$(if $(TCONFIG_OPTIMIZE_SIZE_MORE),enable_multilink=no,enable_multilink=yes) \
+		$(if $(TCONFIG_IPV6),enable_ipv6cp=yes,enable_ipv6cp=no) \
+		$(CONFIGURE) --prefix=/usr --sysconfdir=/tmp --with-plugin-dir=/usr/lib/pppd \
+			--with-runtime-dir=/var/run --with-logfile-dir=/var/log \
+			--with-system-ca-path=/etc/ssl/certs
+
+pppd: pppd/Makefile
+	@$(SEP)
+	@$(MAKE) -C $@ $(PARALLEL_BUILD)
+
+pppd-install:
+	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
+	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
+	install -D pppd/chat/chat $(INSTALLDIR)/pppd/usr/sbin/chat
+	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/chat
+ifeq ($(TCONFIG_L2TP),y)
+	install -D pppd/pppd/plugins/pppol2tp/.libs/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
+	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
+endif
+
+pppd-clean:
+	-@$(MAKE) -C pppd clean
+	@rm -f pppd/Makefile
+	$(call unpatch_files,pppd)
+
 accel-pptp/Makefile:
 	$(call patch_files,accel-pptp)
 	cd accel-pptp && \
@@ -1728,30 +1738,29 @@ pptpd-clean:
 	@rm -f pptpd/plugins/pppd
 	$(call unpatch_files,pptpd)
 
-pppd/Makefile: pppd/linux/Makefile.top
-	$(call patch_files,pppd)
-	cd pppd && \
-		LDFLAGS="-Wl,--gc-sections" \
-		$(CONFIGURE) --prefix=/usr --sysconfdir=/tmp --cc=$(CC) --cflags="$(if $(TCONFIG_OPTIMIZE_SIZE),-Os,-O2) -Wall -ffunction-sections -fdata-sections"
+rp-pppoe/src/Makefile:
+	$(call patch_files,rp-pppoe)
+	cd rp-pppoe/src && \
+		CFLAGS="$(if $(TCONFIG_OPTIMIZE_SIZE),-Os,-O2) -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		CPPFLAGS="$(if $(TCONFIG_OPTIMIZE_SIZE),-Os,-O2) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+		$(CONFIGURE) --prefix=/usr --enable-plugin=$(TOP)/pppd --disable-debugging \
+			ac_cv_linux_kernel_pppoe=yes ac_cv_path_PPPD=$(TOP)/pppd
 
-pppd: pppd/Makefile
+rp-pppoe: rp-pppoe/src/Makefile
 	@$(SEP)
-	@$(MAKE) -C $@ MFLAGS='$(if $(TCONFIG_IPV6),HAVE_INET6=y,) $(if $(TCONFIG_HTTPS),,USE_CRYPT=y) EXTRACFLAGS="$(EXTRACFLAGS) $(OPTSIZE_MORE_FLAG)"' $(PARALLEL_BUILD)
+	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so $(PARALLEL_BUILD)
 
-pppd-install:
-	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
-	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
-	install -D pppd/chat/chat $(INSTALLDIR)/pppd/usr/sbin/chat
-	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/chat
-ifeq ($(TCONFIG_L2TP),y)
-	install -D pppd/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
-	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
-endif
+rp-pppoe-install:
+	install -D rp-pppoe/src/rp-pppoe.so $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
+	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/*.so
+#	install -D rp-pppoe/src/pppoe-relay $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
+#	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
 
-pppd-clean:
-	-@$(MAKE) -C pppd clean
-	@rm -f pppd/Makefile
-	$(call unpatch_files,pppd)
+rp-pppoe-clean:
+	-@$(MAKE) -C rp-pppoe/src clean
+	@rm -f rp-pppoe/src/Makefile
+	$(call unpatch_files,rp-pppoe)
 
 zebra/stamp-h1:
 	@cd zebra && rm -f config.cache && \

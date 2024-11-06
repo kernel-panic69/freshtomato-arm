@@ -18,7 +18,7 @@
  * 3. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by Paul Mackerras
- *     <paulus@samba.org>".
+ *     <paulus@ozlabs.org>".
  *
  * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
  * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -69,6 +69,10 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -77,21 +81,25 @@
 #include <sys/stat.h>
 #include <sys/utsname.h>
 #include <sys/sysmacros.h>
+#include <sys/param.h>
 
 #include <errno.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
 #include <string.h>
 #include <time.h>
 #include <memory.h>
+#ifdef HAVE_UTMP_H
 #include <utmp.h>
+#endif
 #include <mntent.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <ctype.h>
-#include <termios.h>
 #include <unistd.h>
+#include <limits.h>
 
 /* This is in netdevice.h. However, this compile will fail miserably if
    you attempt to include netdevice.h because it has so many references
@@ -118,39 +126,56 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include <linux/ppp_defs.h>
-#include <linux/if_ppp.h>
+#include <linux/ppp-ioctl.h>
 
-#ifdef INET6
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/if_link.h>
 #include <linux/if_addr.h>
+
+/* glibc versions prior to 2.24 do not define SOL_NETLINK */
+#ifndef SOL_NETLINK
+#define SOL_NETLINK 270
 #endif
 
-#include "pppd.h"
+/* linux kernel versions prior to 4.3 do not define/support NETLINK_CAP_ACK */
+#ifndef NETLINK_CAP_ACK
+#define NETLINK_CAP_ACK 10
+#endif
+
+/* linux kernel versions prior to 4.7 do not define/support IFLA_PPP_DEV_FD */
+#ifndef IFLA_PPP_MAX
+/* IFLA_PPP_DEV_FD is declared as enum when IFLA_PPP_MAX is defined */
+#define IFLA_PPP_DEV_FD 1
+#endif
+
+#include "pppd-private.h"
+#include "options.h"
 #include "fsm.h"
 #include "ipcp.h"
 
-#ifdef IPX_CHANGE
-#include "ipxcp.h"
-#if __GLIBC__ >= 2 && \
-    !(defined(__powerpc__) && __GLIBC__ == 2 && __GLIBC_MINOR__ == 0)
-#include <netipx/ipx.h>
-#else
-#include <linux/ipx.h>
-#endif
-#endif /* IPX_CHANGE */
+#ifdef PPP_WITH_IPV6CP
+#include "eui64.h"
+#endif /* PPP_WITH_IPV6CP */
 
-#ifdef PPP_FILTER
+#include "multilink.h"
+
+#ifdef PPP_WITH_FILTER
 #include <pcap-bpf.h>
 #include <linux/filter.h>
-#endif /* PPP_FILTER */
+#endif /* PPP_WITH_FILTER */
 
 #ifdef LOCKLIB
 #include <sys/locks.h>
 #endif
 
-#ifdef INET6
+/*
+ * Instead of system header file <termios.h> use local "termios_linux.h" header
+ * file as it provides additional support for arbitrary baud rates via BOTHER.
+ */
+#include "termios_linux.h"
+
+#ifdef PPP_WITH_IPV6CP
 #ifndef _LINUX_IN6_H
 /*
  *    This is in linux/include/net/ipv6.h.
@@ -164,13 +189,13 @@ struct in6_ifreq {
 #endif
 
 #define IN6_LLADDR_FROM_EUI64(sin6, eui64) do {			\
-	memset(&sin6.s6_addr, 0, sizeof(struct in6_addr));	\
-	sin6.s6_addr16[0] = htons(0xfe80);			\
-	eui64_copy(eui64, sin6.s6_addr32[2]);			\
+	memset(&(sin6).s6_addr, 0, sizeof(struct in6_addr));	\
+	(sin6).s6_addr16[0] = htons(0xfe80);			\
+	eui64_copy(eui64, (sin6).s6_addr32[2]);			\
 	} while (0)
 
 static const eui64_t nulleui64;
-#endif /* INET6 */
+#endif /* PPP_WITH_IPV6CP */
 
 /* We can get an EIO error on an ioctl if the modem has hung up */
 #define ok_error(num) ((num)==EIO)
@@ -182,9 +207,9 @@ static int ppp_fd = -1;		/* fd which is set to PPP discipline */
 static int sock_fd = -1;	/* socket for doing interface ioctls */
 static int slave_fd = -1;	/* pty for old-style demand mode, slave */
 static int master_fd = -1;	/* pty for old-style demand mode, master */
-#ifdef INET6
+#ifdef PPP_WITH_IPV6CP
 static int sock6_fd = -1;
-#endif /* INET6 */
+#endif /* PPP_WITH_IPV6CP */
 
 /*
  * For the old-style kernel driver, this is the same as ppp_fd.
@@ -266,6 +291,147 @@ extern int dfl_route_metric;
     memset ((char *) &(addr), '\0', sizeof(addr));	\
     addr.sa_family = (family);
 
+
+/*
+ * rtnetlink_msg - send rtnetlink message, receive response
+ * and return received error code:
+ * 0              - success
+ * positive value - error during sending / receiving message
+ * negative value - rtnetlink responce error code
+ */
+static int rtnetlink_msg(const char *desc, int *shared_fd, void *nlreq, size_t nlreq_len, void *nlresp_data, size_t *nlresp_size, unsigned nlresp_type)
+{
+    struct nlresp_hdr {
+        struct nlmsghdr nlh;
+        struct nlmsgerr nlerr;
+    } nlresp_hdr;
+    struct sockaddr_nl nladdr;
+    struct iovec iov[2];
+    struct msghdr msg;
+    ssize_t nlresp_len;
+    int one;
+    int fd;
+
+    if (shared_fd && *shared_fd >= 0) {
+        fd = *shared_fd;
+    } else {
+        fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+        if (fd < 0) {
+            error("rtnetlink_msg: socket(NETLINK_ROUTE): %m (line %d)", __LINE__);
+            return 1;
+        }
+
+        /*
+         * Tell kernel to not send to us payload of acknowledgment error message.
+         * NETLINK_CAP_ACK option is supported since Linux kernel version 4.3 and
+         * older kernel versions always send full payload in acknowledgment netlink
+         * message. We ignore payload of this message as we need only error code,
+         * to check if our set remote peer address request succeeded or failed.
+         * So ignore return value from the following setsockopt() call as setting
+         * option NETLINK_CAP_ACK means for us just a kernel hint / optimization.
+         */
+        one = 1;
+        setsockopt(fd, SOL_NETLINK, NETLINK_CAP_ACK, &one, sizeof(one));
+
+        memset(&nladdr, 0, sizeof(nladdr));
+        nladdr.nl_family = AF_NETLINK;
+
+        if (bind(fd, (struct sockaddr *)&nladdr, sizeof(nladdr)) < 0) {
+            error("rtnetlink_msg: bind(AF_NETLINK): %m (line %d)", __LINE__);
+            close(fd);
+            return 1;
+        }
+
+        if (shared_fd)
+            *shared_fd = fd;
+    }
+
+    memset(&nladdr, 0, sizeof(nladdr));
+    nladdr.nl_family = AF_NETLINK;
+
+    memset(&iov[0], 0, sizeof(iov[0]));
+    iov[0].iov_base = nlreq;
+    iov[0].iov_len = nlreq_len;
+
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_name = &nladdr;
+    msg.msg_namelen = sizeof(nladdr);
+    msg.msg_iov = &iov[0];
+    msg.msg_iovlen = 1;
+
+    if (sendmsg(fd, &msg, 0) < 0) {
+        error("rtnetlink_msg: sendmsg(%s): %m (line %d)", desc, __LINE__);
+        if (!shared_fd)
+            close(fd);
+        return 1;
+    }
+
+    memset(iov, 0, sizeof(iov));
+    iov[0].iov_base = &nlresp_hdr;
+    if (nlresp_size && *nlresp_size > sizeof(nlresp_hdr)) {
+        iov[0].iov_len = offsetof(struct nlresp_hdr, nlerr);
+        iov[1].iov_base = nlresp_data;
+        iov[1].iov_len = *nlresp_size;
+    } else {
+        iov[0].iov_len = sizeof(nlresp_hdr);
+    }
+
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_name = &nladdr;
+    msg.msg_namelen = sizeof(nladdr);
+    msg.msg_iov = iov;
+    msg.msg_iovlen = (nlresp_size && *nlresp_size > sizeof(nlresp_hdr)) ? 2 : 1;
+
+    nlresp_len = recvmsg(fd, &msg, 0);
+
+    if (!shared_fd)
+        close(fd);
+
+    if (nlresp_len < 0) {
+        error("rtnetlink_msg: recvmsg(%s): %m (line %d)", desc, __LINE__);
+        return 1;
+    }
+
+    if (nladdr.nl_family != AF_NETLINK) {
+        error("rtnetlink_msg: recvmsg(%s): Not a netlink packet (line %d)", desc, __LINE__);
+        return 1;
+    }
+
+    if (!nlresp_size) {
+        if ((size_t)nlresp_len < sizeof(nlresp_hdr) || nlresp_hdr.nlh.nlmsg_len < sizeof(nlresp_hdr)) {
+            error("rtnetlink_msg: recvmsg(%s): Acknowledgment netlink packet too short (line %d)", desc, __LINE__);
+            return 1;
+        }
+
+        /* acknowledgment packet for NLM_F_ACK is NLMSG_ERROR */
+        if (nlresp_hdr.nlh.nlmsg_type != NLMSG_ERROR) {
+            error("rtnetlink_msg: recvmsg(%s): Not an acknowledgment netlink packet (line %d)", desc, __LINE__);
+            return 1;
+        }
+    }
+
+    if (nlresp_size) {
+        if (*nlresp_size > sizeof(nlresp_hdr))
+            memcpy((unsigned char *)&nlresp_hdr + offsetof(struct nlresp_hdr, nlerr), nlresp_data, sizeof(nlresp_hdr.nlerr));
+        else
+            memcpy(nlresp_data, (unsigned char *)&nlresp_hdr + offsetof(struct nlresp_hdr, nlerr), *nlresp_size);
+    }
+
+    /* error == 0 indicates success, negative value is errno code */
+    if (nlresp_hdr.nlh.nlmsg_type == NLMSG_ERROR && nlresp_hdr.nlerr.error)
+        return nlresp_hdr.nlerr.error;
+
+    if (nlresp_size) {
+        if (nlresp_hdr.nlh.nlmsg_type != nlresp_type) {
+            error("rtnetlink_msg: recvmsg(%s): Not a netlink packet of type 0x%x (line %d)", desc, nlresp_type, __LINE__);
+            return 1;
+        }
+        *nlresp_size = nlresp_len - offsetof(struct nlresp_hdr, nlerr);
+    }
+
+    return 0;
+}
+
 /*
  * Determine if the PPP connection should still be present.
  */
@@ -327,7 +493,7 @@ void sys_init(void)
     if (sock_fd < 0)
 	fatal("Couldn't create IP socket: %m(%d)", errno);
 
-#ifdef INET6
+#ifdef PPP_WITH_IPV6CP
     sock6_fd = socket(AF_INET6, SOCK_DGRAM, 0);
     if (sock6_fd < 0)
 	sock6_fd = -errno;	/* save errno for later */
@@ -353,15 +519,17 @@ void sys_cleanup(void)
 	if_is_up = 0;
 	sifdown(0);
     }
+#ifdef PPP_WITH_IPV6CP
     if (if6_is_up)
 	sif6down(0);
+#endif
 
 /*
  * Delete any routes through the device.
  */
     if (have_default_route)
 	cifdefaultroute(0, 0, 0);
-#ifdef INET6
+#ifdef PPP_WITH_IPV6CP
     if (have_default_route6)
 	cif6defaultroute(0, nulleui64, nulleui64);
 #endif
@@ -372,16 +540,16 @@ void sys_cleanup(void)
 
 /********************************************************************
  *
- * sys_close - Clean up in a child process before execing.
+ * ppp_sys_close - Clean up in a child process before execing.
  */
 void
-sys_close(void)
+ppp_sys_close(void)
 {
     if (new_style_driver && ppp_dev_fd >= 0)
 	close(ppp_dev_fd);
     if (sock_fd >= 0)
 	close(sock_fd);
-#ifdef INET6
+#ifdef PPP_WITH_IPV6CP
     if (sock6_fd >= 0)
 	close(sock6_fd);
 #endif
@@ -439,7 +607,7 @@ int tty_establish_ppp (int tty_fd)
 #ifndef N_SYNC_PPP
 #define N_SYNC_PPP 14
 #endif
-    ppp_disc = (new_style_driver && sync_serial)? N_SYNC_PPP: N_PPP;
+    ppp_disc = (new_style_driver && ppp_sync_serial())? N_SYNC_PPP: N_PPP;
     if (ioctl(tty_fd, TIOCSETD, &ppp_disc) < 0) {
 	if ( ! ok_error (errno) ) {
 	    error("Couldn't set tty to PPP discipline: %m");
@@ -447,7 +615,7 @@ int tty_establish_ppp (int tty_fd)
 	}
     }
 
-    ret_fd = generic_establish_ppp(tty_fd);
+    ret_fd = ppp_generic_establish(tty_fd);
 
 #define SC_RCVB	(SC_RCV_B7_0 | SC_RCV_B7_1 | SC_RCV_EVNP | SC_RCV_ODDP)
 #define SC_LOGB	(SC_DEBUG | SC_LOG_INPKT | SC_LOG_OUTPKT | SC_LOG_RAWIN \
@@ -468,7 +636,7 @@ int tty_establish_ppp (int tty_fd)
  *
  * generic_establish_ppp - Turn the fd into a ppp interface.
  */
-int generic_establish_ppp (int fd)
+int ppp_generic_establish (int fd)
 {
     int x;
 
@@ -605,16 +773,16 @@ void tty_disestablish_ppp(int tty_fd)
 flushfailed:
     initfdflags = -1;
 
-    generic_disestablish_ppp(tty_fd);
+    ppp_generic_disestablish(tty_fd);
 }
 
 /********************************************************************
  *
- * generic_disestablish_ppp - Restore device components to normal
+ * ppp_generic_disestablish - Restore device components to normal
  * operation, and reconnect the ppp unit to the loopback if in demand
  * mode.  This shouldn't call die() because it's called from die().
  */
-void generic_disestablish_ppp(int dev_fd)
+void ppp_generic_disestablish(int dev_fd)
 {
     if (new_style_driver) {
 	close(ppp_fd);
@@ -622,7 +790,7 @@ void generic_disestablish_ppp(int dev_fd)
 	if (demand) {
 	    modify_flags(ppp_dev_fd, 0, SC_LOOP_TRAFFIC);
 	    looped = 1;
-	} else if (!doing_multilink && ppp_dev_fd >= 0) {
+	} else if (!mp_on() && ppp_dev_fd >= 0) {
 	    close(ppp_dev_fd);
 	    remove_fd(ppp_dev_fd);
 	    ppp_dev_fd = -1;
@@ -634,6 +802,84 @@ void generic_disestablish_ppp(int dev_fd)
 	else
 	    ppp_dev_fd = -1;
     }
+}
+
+/*
+ * make_ppp_unit_rtnetlink - register a new ppp network interface for ppp_dev_fd
+ * with specified req_ifname via rtnetlink. Interface name req_ifname must not
+ * be empty. Custom ppp unit id req_unit is ignored and kernel choose some free.
+ */
+static int make_ppp_unit_rtnetlink(void)
+{
+    struct {
+        struct nlmsghdr nlh;
+        struct ifinfomsg ifm;
+        struct {
+            struct rtattr rta;
+            char ifname[IFNAMSIZ];
+        } ifn;
+        struct {
+            struct rtattr rta;
+            struct {
+                struct rtattr rta;
+                char ifkind[sizeof("ppp")];
+            } ifik;
+            struct {
+                struct rtattr rta;
+                struct {
+                    struct rtattr rta;
+                    union {
+                        int ppp_dev_fd;
+                    } ppp;
+                } ifdata[1];
+            } ifid;
+        } ifli;
+    } nlreq;
+    int resp;
+
+    memset(&nlreq, 0, sizeof(nlreq));
+    nlreq.nlh.nlmsg_len = sizeof(nlreq);
+    nlreq.nlh.nlmsg_type = RTM_NEWLINK;
+    nlreq.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE;
+    nlreq.ifm.ifi_family = AF_UNSPEC;
+    nlreq.ifm.ifi_type = ARPHRD_NETROM;
+    nlreq.ifn.rta.rta_len = sizeof(nlreq.ifn);
+    nlreq.ifn.rta.rta_type = IFLA_IFNAME;
+    strlcpy(nlreq.ifn.ifname, req_ifname, sizeof(nlreq.ifn.ifname));
+    nlreq.ifli.rta.rta_len = sizeof(nlreq.ifli);
+    nlreq.ifli.rta.rta_type = IFLA_LINKINFO;
+    nlreq.ifli.ifik.rta.rta_len = sizeof(nlreq.ifli.ifik);
+    nlreq.ifli.ifik.rta.rta_type = IFLA_INFO_KIND;
+    strcpy(nlreq.ifli.ifik.ifkind, "ppp");
+    nlreq.ifli.ifid.rta.rta_len = sizeof(nlreq.ifli.ifid);
+    nlreq.ifli.ifid.rta.rta_type = IFLA_INFO_DATA;
+    nlreq.ifli.ifid.ifdata[0].rta.rta_len = sizeof(nlreq.ifli.ifid.ifdata[0]);
+    nlreq.ifli.ifid.ifdata[0].rta.rta_type = IFLA_PPP_DEV_FD;
+    nlreq.ifli.ifid.ifdata[0].ppp.ppp_dev_fd = ppp_dev_fd;
+
+    /*
+     * See kernel function ppp_nl_newlink(), which may return -EBUSY to prevent
+     * possible deadlock in kernel and ask userspace to retry request again.
+     */
+    do {
+        resp = rtnetlink_msg("RTM_NEWLINK/NLM_F_CREATE", NULL, &nlreq, sizeof(nlreq), NULL, NULL, 0);
+    } while (resp == -EBUSY);
+
+    if (resp) {
+        /*
+         * Linux kernel versions prior to 4.7 do not support creating ppp
+         * interfaces via rtnetlink API and therefore error response is
+         * expected. On older kernel versions do not show this error message.
+         * When error is different than EEXIST then pppd tries to fallback to
+         * the old ioctl method.
+         */
+        errno = (resp < 0) ? -resp : EINVAL;
+        if (kernel_version >= KVERSION(4,7,0))
+            error("Couldn't create ppp interface %s: %m", req_ifname);
+        return 0;
+    }
+
+    return 1;
 }
 
 /*
@@ -656,6 +902,33 @@ static int make_ppp_unit(void)
 	    || fcntl(ppp_dev_fd, F_SETFL, flags | O_NONBLOCK) == -1)
 		warn("Couldn't set /dev/ppp to nonblock: %m");
 
+	/*
+	 * Via rtnetlink it is possible to create ppp network interface with
+	 * custom ifname atomically. But it is not possible to specify custom
+	 * ppp unit id.
+	 *
+	 * Tools like systemd, udev or NetworkManager are trying to query
+	 * interface attributes based on interface name immediately when new
+	 * network interface is created. And therefore immediate interface
+	 * renaming is causing issues.
+	 *
+	 * So use rtnetlink API only when user requested custom ifname. It will
+	 * avoid system issues with interface renaming.
+	 */
+	if (req_unit == -1 && req_ifname[0] != '\0' && kernel_version >= KVERSION(2,1,16)) {
+	    if (make_ppp_unit_rtnetlink()) {
+		if (ioctl(ppp_dev_fd, PPPIOCGUNIT, &ifunit))
+		    fatal("Couldn't retrieve PPP unit id: %m");
+		return 0;
+	    }
+	    /*
+	     * If interface with requested name already exist return error
+	     * otherwise fallback to old ioctl method.
+	     */
+	    if (errno == EEXIST)
+		return -1;
+	}
+
 	ifunit = req_unit;
 	x = ioctl(ppp_dev_fd, PPPIOCNEWUNIT, &ifunit);
 	if (x < 0 && req_unit >= 0 && errno == EEXIST) {
@@ -663,16 +936,21 @@ static int make_ppp_unit(void)
 		ifunit = -1;
 		x = ioctl(ppp_dev_fd, PPPIOCNEWUNIT, &ifunit);
 	}
+	if (x < 0 && errno == EEXIST) {
+		srand(time(NULL) * getpid());
+		ifunit = rand() % 10000;
+		x = ioctl(ppp_dev_fd, PPPIOCNEWUNIT, &ifunit);
+	}
 	if (x < 0)
 		error("Couldn't create new ppp unit: %m");
 
 	if (x == 0 && req_ifname[0] != '\0') {
 		struct ifreq ifr;
-		char t[MAXIFNAMELEN];
+		char t[IFNAMSIZ];
 		memset(&ifr, 0, sizeof(struct ifreq));
 		slprintf(t, sizeof(t), "%s%d", PPP_DRV_NAME, ifunit);
-		strlcpy(ifr.ifr_name, t, IF_NAMESIZE);
-		strlcpy(ifr.ifr_newname, req_ifname, IF_NAMESIZE);
+		strlcpy(ifr.ifr_name, t, IFNAMSIZ);
+		strlcpy(ifr.ifr_newname, req_ifname, IFNAMSIZ);
 		x = ioctl(sock_fd, SIOCSIFNAME, &ifr);
 		if (x < 0)
 		    error("Couldn't rename interface %s to %s: %m", t, req_ifname);
@@ -878,6 +1156,9 @@ struct speed {
 #ifdef B115200
     { 115200, B115200 },
 #endif
+#ifdef B153600
+    { 153600, B153600 },
+#endif
 #ifdef EXTA
     { 19200, EXTA },
 #endif
@@ -887,8 +1168,20 @@ struct speed {
 #ifdef B230400
     { 230400, B230400 },
 #endif
+#ifdef B307200
+    { 307200, B307200 },
+#endif
 #ifdef B460800
     { 460800, B460800 },
+#endif
+#ifdef B500000
+    { 500000, B500000 },
+#endif
+#ifdef B576000
+    { 576000, B576000 },
+#endif
+#ifdef B614400
+    { 614400, B614400 },
 #endif
 #ifdef B921600
     { 921600, B921600 },
@@ -934,7 +1227,6 @@ static int translate_speed (int bps)
 	    if (bps == speedp->speed_int)
 		return speedp->speed_val;
 	}
-	warn("speed %d not supported", bps);
     }
     return 0;
 }
@@ -1013,26 +1305,53 @@ void set_up_tty(int tty_fd, int local)
     if (stop_bits >= 2)
 	tios.c_cflag |= CSTOPB;
 
-    speed = translate_speed(inspeed);
-    if (speed) {
-	cfsetospeed (&tios, speed);
-	cfsetispeed (&tios, speed);
+    if (inspeed) {
+	speed = translate_speed(inspeed);
+	if (speed) {
+	    cfsetospeed (&tios, speed);
+	    cfsetispeed (&tios, speed);
+	    speed = cfgetospeed(&tios);
+	    baud_rate = baud_rate_of(speed);
+	} else {
+#ifdef BOTHER
+	    tios.c_cflag &= ~CBAUD;
+	    tios.c_cflag |= BOTHER;
+	    tios.c_ospeed = inspeed;
+#ifdef IBSHIFT
+	    /* B0 sets input baudrate to the output baudrate */
+	    tios.c_cflag &= ~(CBAUD << IBSHIFT);
+	    tios.c_cflag |= B0 << IBSHIFT;
+	    tios.c_ispeed = inspeed;
+#endif
+	    baud_rate = inspeed;
+#else
+	    baud_rate = 0;
+#endif
+	}
     }
-/*
- * We can't proceed if the serial port speed is B0,
- * since that implies that the serial port is disabled.
- */
     else {
 	speed = cfgetospeed(&tios);
-	if (speed == B0)
+	baud_rate = baud_rate_of(speed);
+#ifdef BOTHER
+	if (!baud_rate)
+	    baud_rate = tios.c_ospeed;
+#endif
+    }
+
+/*
+ * We can't proceed if the serial port baud rate is unknown,
+ * since that implies that the serial port is disabled.
+ */
+    if (!baud_rate) {
+	if (inspeed)
+	    fatal("speed %d not supported", inspeed);
+	else
 	    fatal("Baud rate for %s is 0; need explicit baud rate", devnam);
     }
 
     while (tcsetattr(tty_fd, TCSAFLUSH, &tios) < 0 && !ok_error(errno))
 	if (errno != EINTR)
 	    fatal("tcsetattr: %m (line %d)", __LINE__);
-
-    baud_rate    = baud_rate_of(speed);
     restore_term = 1;
 }
 
@@ -1177,7 +1496,7 @@ int read_packet (unsigned char *buf)
 	    error("read /dev/ppp: %m");
 	if (nr < 0 && errno == ENXIO)
 	    nr = 0;
-	if (nr == 0 && doing_multilink) {
+	if (nr == 0 && mp_on()) {
 	    remove_fd(ppp_dev_fd);
 	    bundle_eof = 1;
 	}
@@ -1223,7 +1542,7 @@ get_loop_output(void)
  * netif_set_mtu - set the MTU on the PPP network interface.
  */
 void
-netif_set_mtu(int unit, int mtu)
+ppp_set_mtu(int unit, int mtu)
 {
     struct ifreq ifr;
 
@@ -1239,7 +1558,7 @@ netif_set_mtu(int unit, int mtu)
  * netif_get_mtu - get the MTU on the PPP network interface.
  */
 int
-netif_get_mtu(int unit)
+ppp_get_mtu(int unit)
 {
     struct ifreq ifr;
 
@@ -1274,7 +1593,7 @@ void tty_send_config(int mtu, u_int32_t asyncmap, int pcomp, int accomp)
 	}
 
 	x = (pcomp? SC_COMP_PROT: 0) | (accomp? SC_COMP_AC: 0)
-	    | (sync_serial? SC_SYNC: 0);
+	    | (ppp_sync_serial()? SC_SYNC: 0);
 	modify_flags(ppp_fd, SC_COMP_PROT|SC_COMP_AC|SC_SYNC, x);
 }
 
@@ -1360,7 +1679,7 @@ void ccp_flags_set (int unit, int isopen, int isup)
 		modify_flags(ppp_dev_fd, SC_CCP_OPEN|SC_CCP_UP, x);
 }
 
-#ifdef PPP_FILTER
+#ifdef PPP_WITH_FILTER
 /*
  * set_filters - set the active and pass filters in the kernel driver.
  */
@@ -1385,7 +1704,7 @@ int set_filters(struct bpf_program *pass, struct bpf_program *active)
 	}
 	return 1;
 }
-#endif /* PPP_FILTER */
+#endif /* PPP_WITH_FILTER */
 
 /********************************************************************
  *
@@ -1399,26 +1718,222 @@ get_idle_time(int u, struct ppp_idle *ip)
 
 /********************************************************************
  *
- * get_ppp_stats - return statistics for the link.
+ * get_ppp_stats_iocl - return statistics for the link, using the ioctl() method,
+ * this only supports 32-bit counters, so need to count the wraps.
  */
-int
-get_ppp_stats(int u, struct pppd_stats *stats)
+static int
+get_ppp_stats_ioctl(int u, struct pppd_stats *stats)
 {
-    struct ifpppstatsreq req;
+    static u_int32_t previbytes = 0;
+    static u_int32_t prevobytes = 0;
+    static u_int32_t iwraps = 0;
+    static u_int32_t owraps = 0;
+
+    struct ifreq req;
+    struct ppp_stats data;
 
     memset (&req, 0, sizeof (req));
 
-    req.stats_ptr = (caddr_t) &req.stats;
-    strlcpy(req.ifr__name, ifname, sizeof(req.ifr__name));
+    req.ifr_data = (caddr_t) &data;
+    strlcpy(req.ifr_name, ifname, sizeof(req.ifr_name));
     if (ioctl(sock_fd, SIOCGPPPSTATS, &req) < 0) {
 	error("Couldn't get PPP statistics: %m");
 	return 0;
     }
-    stats->bytes_in = req.stats.p.ppp_ibytes;
-    stats->bytes_out = req.stats.p.ppp_obytes;
-    stats->pkts_in = req.stats.p.ppp_ipackets;
-    stats->pkts_out = req.stats.p.ppp_opackets;
+    stats->bytes_in = data.p.ppp_ibytes;
+    stats->bytes_out = data.p.ppp_obytes;
+    stats->pkts_in = data.p.ppp_ipackets;
+    stats->pkts_out = data.p.ppp_opackets;
+
+    if (stats->bytes_in < previbytes)
+	++iwraps;
+    if (stats->bytes_out < prevobytes)
+	++owraps;
+
+    previbytes = stats->bytes_in;
+    prevobytes = stats->bytes_out;
+
+    stats->bytes_in += (uint64_t)iwraps << 32;
+    stats->bytes_out += (uint64_t)owraps << 32;
+
     return 1;
+}
+
+/********************************************************************
+ * get_ppp_stats_rtnetlink - return statistics for the link, using rtnetlink
+ * This provides native 64-bit counters.
+ */
+static int
+get_ppp_stats_rtnetlink(int u, struct pppd_stats *stats)
+{
+#ifdef RTM_NEWSTATS
+    static int fd = -1;
+
+    struct {
+        struct nlmsghdr nlh;
+        struct if_stats_msg ifsm;
+    } nlreq;
+    struct {
+        struct rtmsg rth;
+        struct {
+            /* We only case about these first fields from rtnl_link_stats64 */
+            uint64_t rx_packets;
+            uint64_t tx_packets;
+            uint64_t rx_bytes;
+            uint64_t tx_bytes;
+        } stats;
+    } nlresp_data;
+    size_t nlresp_size;
+    int resp;
+
+    memset(&nlreq, 0, sizeof(nlreq));
+    nlreq.nlh.nlmsg_len = sizeof(nlreq);
+    nlreq.nlh.nlmsg_type = RTM_GETSTATS;
+    nlreq.nlh.nlmsg_flags = NLM_F_REQUEST;
+    nlreq.ifsm.ifindex = if_nametoindex(ifname);
+    nlreq.ifsm.filter_mask = IFLA_STATS_LINK_64;
+
+    nlresp_size = sizeof(nlresp_data);
+    resp = rtnetlink_msg("RTM_GETSTATS/NLM_F_REQUEST", &fd, &nlreq, sizeof(nlreq), &nlresp_data, &nlresp_size, RTM_NEWSTATS);
+    if (resp) {
+        errno = (resp < 0) ? -resp : EINVAL;
+        if (kernel_version >= KVERSION(4,7,0))
+            error("get_ppp_stats_rtnetlink: %m (line %d)", __LINE__);
+        goto err;
+    }
+
+    if (nlresp_size < sizeof(nlresp_data)) {
+	error("get_ppp_stats_rtnetlink: Obtained an insufficiently sized rtnl_link_stats64 struct from the kernel (line %d).", __LINE__);
+	goto err;
+    }
+
+    stats->bytes_in  = nlresp_data.stats.rx_bytes;
+    stats->bytes_out = nlresp_data.stats.tx_bytes;
+    stats->pkts_in   = nlresp_data.stats.rx_packets;
+    stats->pkts_out  = nlresp_data.stats.tx_packets;
+
+    return 1;
+err:
+    close(fd);
+    fd = -1;
+#endif
+    return 0;
+}
+
+/********************************************************************
+ * get_ppp_stats_sysfs - return statistics for the link, using the files in sysfs,
+ * this provides native 64-bit counters.
+ */
+static int
+get_ppp_stats_sysfs(int u, struct pppd_stats *stats)
+{
+    char fname[PATH_MAX+1];
+    char buf[21], *err; /* 2^64 < 10^20 */
+    int blen, fd, rlen;
+    unsigned long long val;
+
+    struct {
+	const char* fname;
+	void* ptr;
+	unsigned size;
+    } slist[] = {
+#define statfield(fn, field)	{ .fname = #fn, .ptr = &stats->field, .size = sizeof(stats->field) }
+	statfield(rx_bytes, bytes_in),
+	statfield(tx_bytes, bytes_out),
+	statfield(rx_packets, pkts_in),
+	statfield(tx_packets, pkts_out),
+#undef statfield
+    };
+
+    blen = snprintf(fname, sizeof(fname), "/sys/class/net/%s/statistics/", ifname);
+    if (blen >= sizeof(fname))
+	return 0; /* ifname max 15, so this should be impossible */
+
+    for (int i = 0; i < sizeof(slist) / sizeof(*slist); ++i) {
+	if (snprintf(fname + blen, sizeof(fname) - blen, "%s", slist[i].fname) >= sizeof(fname) - blen) {
+	    fname[blen] = 0;
+	    error("sysfs stats: filename %s/%s overflowed PATH_MAX", fname, slist[i].fname);
+	    return 0;
+	}
+
+	fd = open(fname, O_RDONLY);
+	if (fd < 0) {
+	    error("%s: %m", fname);
+	    return 0;
+	}
+
+	rlen = read(fd, buf, sizeof(buf) - 1);
+	close(fd);
+	if (rlen < 0) {
+	    error("%s: %m", fname);
+	    return 0;
+	}
+	/* trim trailing \n if present */
+	while (rlen > 0 && buf[rlen-1] == '\n')
+	    rlen--;
+	buf[rlen] = 0;
+
+	errno = 0;
+	val = strtoull(buf, &err, 10);
+	if (*buf < '0' || *buf > '9' || errno != 0 || *err) {
+	    error("string to number conversion error converting %s (from %s) for remaining string %s%s%s",
+		    buf, fname, err, errno ? ": " : "", errno ? strerror(errno) : "");
+	    return 0;
+	}
+	switch (slist[i].size) {
+#define stattype(type)	case sizeof(type): *(type*)slist[i].ptr = (type)val; break
+	    stattype(uint64_t);
+	    stattype(uint32_t);
+	    stattype(uint16_t);
+	    stattype(uint8_t);
+#undef stattype
+	default:
+	    error("Don't know how to store stats for %s of size %u", slist[i].fname, slist[i].size);
+	    return 0;
+	}
+    }
+
+    return 1;
+}
+
+/********************************************************************
+ * Periodic timer function to be used to keep stats up to date in case of ioctl
+ * polling.
+ *
+ * Given the 25s interval this should be fine up to data rates of 1.37Gbps.
+ * If you do change the timer, remember to also bring the get_ppp_stats (which
+ * sets up the initial trigger) as well.
+ */
+static void
+ppp_stats_poller(void* u)
+{
+    struct pppd_stats dummy;
+    get_ppp_stats_ioctl((long)u, &dummy);
+    TIMEOUT(ppp_stats_poller, u, 25);
+}
+
+/********************************************************************
+ * get_ppp_stats - return statistics for the link.
+ */
+int get_ppp_stats(int u, struct pppd_stats *stats)
+{
+    static int (*func)(int, struct pppd_stats*) = NULL;
+
+    if (!func) {
+	if (get_ppp_stats_rtnetlink(u, stats)) {
+	    func = get_ppp_stats_rtnetlink;
+	    return 1;
+	}
+	if (get_ppp_stats_sysfs(u, stats)) {
+	    func = get_ppp_stats_sysfs;
+	    return 1;
+	}
+	warn("statistics falling back to ioctl which only supports 32-bit counters");
+	func = get_ppp_stats_ioctl;
+	TIMEOUT(ppp_stats_poller, (void*)(long)u, 25);
+    }
+
+    return func(u, stats);
 }
 
 /********************************************************************
@@ -1678,11 +2193,27 @@ int sifdefaultroute (int unit, u_int32_t ouraddr, u_int32_t gateway, bool replac
 	 * - this is normally only the case the doing demand: */
 	if (defaultroute_exists(&tmp_rt, -1))
 	    del_rt = &tmp_rt;
+    } else if (!replace) {
+	/*
+	 * We don't want to replace an existing route.
+	 * We may however add our route along an existing route with a different
+	 * metric.
+	 */
+	if (defaultroute_exists(&rt, dfl_route_metric) && strcmp(rt.rt_dev, ifname) != 0) {
+	   if (rt.rt_flags & RTF_GATEWAY)
+	       error("not replacing existing default route via %I with metric %d",
+		     SIN_ADDR(rt.rt_gateway), dfl_route_metric);
+	   else
+	       error("not replacing existing default route through %s with metric %d",
+		     rt.rt_dev, dfl_route_metric);
+	   return 0;
+	}
     } else if (defaultroute_exists(&old_def_rt, -1           ) &&
 			    strcmp( old_def_rt.rt_dev, ifname) != 0) {
 	/*
-	 * We did not yet replace an existing default route, let's
-	 * check if we should save and replace a default route:
+	 * We want to replace an existing route and did not replace an existing
+	 * default route yet, let's check if we should save and replace an
+	 * existing default route:
 	 */
 	u_int32_t old_gateway = SIN_ADDR(old_def_rt.rt_gateway);
 
@@ -1780,7 +2311,7 @@ int cifdefaultroute (int unit, u_int32_t ouraddr, u_int32_t gateway)
     return 1;
 }
 
-#ifdef INET6
+#ifdef PPP_WITH_IPV6CP
 /*
  * /proc/net/ipv6_route parsing stuff.
  */
@@ -1970,7 +2501,7 @@ int cif6defaultroute (int unit, eui64_t ouraddr, eui64_t gateway)
 
     return 1;
 }
-#endif /* INET6 */
+#endif /* PPP_WITH_IPV6CP */
 
 /********************************************************************
  *
@@ -2337,11 +2868,11 @@ ppp_registered(void)
 
 /********************************************************************
  *
- * ppp_available - check whether the system has any ppp interfaces
+ * ppp_check_kernel_support - check whether the system has any ppp interfaces
  * (in fact we check whether we can do an ioctl on ppp0).
  */
 
-int ppp_available(void)
+int ppp_check_kernel_support(void)
 {
     int s, ok, fd;
     struct ifreq ifr;
@@ -2596,15 +3127,15 @@ int sifdown (int u)
     if (if_is_up && --if_is_up > 0)
 	return 1;
 
-#ifdef INET6
+#ifdef PPP_WITH_IPV6CP
     if (if6_is_up)
 	return 1;
-#endif /* INET6 */
+#endif /* PPP_WITH_IPV6CP */
 
     return setifstate(u, 0);
 }
 
-#ifdef INET6
+#ifdef PPP_WITH_IPV6CP
 /********************************************************************
  *
  * sif6up - Config the interface up for IPv6
@@ -2635,7 +3166,7 @@ int sif6down (int u)
 
     return setifstate(u, 0);
 }
-#endif /* INET6 */
+#endif /* PPP_WITH_IPV6CP */
 
 /********************************************************************
  *
@@ -2806,7 +3337,7 @@ int cifaddr (int unit, u_int32_t our_adr, u_int32_t his_adr)
 	}
     }
 
-    /* This way it is possible to have an IPX-only or IPv6-only interface */
+    /* This way it is possible to have an IPv6-only interface */
     memset(&ifr, 0, sizeof(ifr));
     SET_SA_FAMILY(ifr.ifr_addr, AF_INET);
     strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
@@ -2823,134 +3354,66 @@ int cifaddr (int unit, u_int32_t our_adr, u_int32_t his_adr)
     return 1;
 }
 
-#ifdef INET6
-static int append_peer_ipv6_address(unsigned int iface, struct in6_addr *local_addr, struct in6_addr *remote_addr)
+#ifdef PPP_WITH_IPV6CP
+/********************************************************************
+ *
+ * sif6addr_rtnetlink - Config the interface with both IPv6 link-local addresses via rtnetlink
+ */
+static int sif6addr_rtnetlink(unsigned int iface, eui64_t our_eui64, eui64_t his_eui64)
 {
-    struct msghdr msg;
-    struct sockaddr_nl sa;
-    struct iovec iov;
-    struct nlmsghdr *nlmsg;
-    struct ifaddrmsg *ifa;
-    struct rtattr *local_rta;
-    struct rtattr *remote_rta;
-    char buf[NLMSG_LENGTH(sizeof(*ifa) + RTA_LENGTH(sizeof(*local_addr)) + RTA_LENGTH(sizeof(*remote_addr)))];
-    ssize_t nlmsg_len;
-    struct nlmsgerr *errmsg;
-    int one;
-    int fd;
+    struct {
+        struct nlmsghdr nlh;
+        struct ifaddrmsg ifa;
+        struct {
+            struct rtattr rta;
+            struct in6_addr addr;
+        } addrs[2];
+    } nlreq;
+    int resp;
 
-    fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-    if (fd < 0)
-        return 0;
+    memset(&nlreq, 0, sizeof(nlreq));
+    nlreq.nlh.nlmsg_len = sizeof(nlreq);
+    nlreq.nlh.nlmsg_type = RTM_NEWADDR;
+    nlreq.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_EXCL | NLM_F_CREATE;
+    nlreq.ifa.ifa_family = AF_INET6;
+    nlreq.ifa.ifa_prefixlen = 128;
+    nlreq.ifa.ifa_flags = IFA_F_NODAD | IFA_F_PERMANENT;
+    nlreq.ifa.ifa_scope = RT_SCOPE_LINK;
+    nlreq.ifa.ifa_index = iface;
+    nlreq.addrs[0].rta.rta_len = sizeof(nlreq.addrs[0]);
+    nlreq.addrs[0].rta.rta_type = IFA_LOCAL;
+    IN6_LLADDR_FROM_EUI64(nlreq.addrs[0].addr, our_eui64);
+    nlreq.addrs[1].rta.rta_len = sizeof(nlreq.addrs[1]);
+    nlreq.addrs[1].rta.rta_type = IFA_ADDRESS;
 
-    /* do not ask for error message content */
-    one = 1;
-    setsockopt(fd, SOL_NETLINK, NETLINK_CAP_ACK, &one, sizeof(one));
+    /*
+     * To set only local address, older kernel expects that local address is
+     * in IFA_ADDRESS field (not IFA_LOCAL). New kernels with support for peer
+     * address, ignore IFA_ADDRESS if is same as IFA_LOCAL. So for backward
+     * compatibility when setting only local address, set it via both IFA_LOCAL
+     * and IFA_ADDRESS fields. Same logic is implemented in 'ip address' command
+     * from iproute2 project.
+     */
+    if (!eui64_iszero(his_eui64))
+        IN6_LLADDR_FROM_EUI64(nlreq.addrs[1].addr, his_eui64);
+    else
+        IN6_LLADDR_FROM_EUI64(nlreq.addrs[1].addr, our_eui64);
 
-    memset(&sa, 0, sizeof(sa));
-    sa.nl_family = AF_NETLINK;
-    sa.nl_pid = 0;
-    sa.nl_groups = 0;
-
-    if (bind(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
-        close(fd);
-        return 0;
-    }
-
-    memset(buf, 0, sizeof(buf));
-
-    nlmsg = (struct nlmsghdr *)buf;
-    nlmsg->nlmsg_len = NLMSG_LENGTH(sizeof(*ifa) + RTA_LENGTH(sizeof(*local_addr)) + RTA_LENGTH(sizeof(*remote_addr)));
-    nlmsg->nlmsg_type = RTM_NEWADDR;
-    nlmsg->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK | NLM_F_REPLACE;
-    nlmsg->nlmsg_seq = 1;
-    nlmsg->nlmsg_pid = 0;
-
-    ifa = NLMSG_DATA(nlmsg);
-    ifa->ifa_family = AF_INET6;
-    ifa->ifa_prefixlen = 128;
-    ifa->ifa_flags = 0;
-    ifa->ifa_scope = RT_SCOPE_UNIVERSE;
-    ifa->ifa_index = iface;
-
-    local_rta = IFA_RTA(ifa);
-    local_rta->rta_len = RTA_LENGTH(sizeof(*local_addr));
-    local_rta->rta_type = IFA_LOCAL;
-    memcpy(RTA_DATA(local_rta), local_addr, sizeof(*local_addr));
-
-    remote_rta = (struct rtattr *)((char *)local_rta + local_rta->rta_len);
-    remote_rta->rta_len = RTA_LENGTH(sizeof(*remote_addr));
-    remote_rta->rta_type = IFA_ADDRESS;
-    memcpy(RTA_DATA(remote_rta), remote_addr, sizeof(*remote_addr));
-
-    memset(&sa, 0, sizeof(sa));
-    sa.nl_family = AF_NETLINK;
-    sa.nl_pid = 0;
-    sa.nl_groups = 0;
-
-    memset(&iov, 0, sizeof(iov));
-    iov.iov_base = nlmsg;
-    iov.iov_len = nlmsg->nlmsg_len;
-
-    memset(&msg, 0, sizeof(msg));
-    msg.msg_name = &sa;
-    msg.msg_namelen = sizeof(sa);
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
-    msg.msg_control = NULL;
-    msg.msg_controllen = 0;
-    msg.msg_flags = 0;
-
-    if (sendmsg(fd, &msg, 0) < 0) {
-        close(fd);
+    resp = rtnetlink_msg("RTM_NEWADDR/NLM_F_CREATE", NULL, &nlreq, sizeof(nlreq), NULL, NULL, 0);
+    if (resp) {
+        /*
+         * Linux kernel versions prior 3.11 do not support setting IPv6 peer
+         * addresses and error response is expected. On older kernel versions
+         * do not show this error message. On error pppd tries to fallback to
+         * the old IOCTL method.
+         */
+        errno = (resp < 0) ? -resp : EINVAL;
+        if (kernel_version >= KVERSION(3,11,0))
+            error("sif6addr_rtnetlink: %m (line %d)", __LINE__);
         return 0;
     }
 
-    memset(&iov, 0, sizeof(iov));
-    iov.iov_base = buf;
-    iov.iov_len = sizeof(buf);
-
-    memset(&msg, 0, sizeof(msg));
-    msg.msg_name = NULL;
-    msg.msg_namelen = 0;
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
-    msg.msg_control = NULL;
-    msg.msg_controllen = 0;
-    msg.msg_flags = 0;
-
-    nlmsg_len = recvmsg(fd, &msg, 0);
-    close(fd);
-
-    if (nlmsg_len < 0)
-        return 0;
-
-    if ((size_t)nlmsg_len < sizeof(*nlmsg)) {
-        errno = EINVAL;
-        return 0;
-    }
-
-    nlmsg = (struct nlmsghdr *)buf;
-
-    /* acknowledgment packet for NLM_F_ACK is NLMSG_ERROR */
-    if (nlmsg->nlmsg_type != NLMSG_ERROR) {
-        errno = EINVAL;
-        return 0;
-    }
-
-    if ((size_t)nlmsg_len < NLMSG_LENGTH(sizeof(*errmsg))) {
-        errno = EINVAL;
-        return 0;
-    }
-
-    errmsg = NLMSG_DATA(nlmsg);
-
-    /* error == 0 indicates success */
-    if (errmsg->error == 0)
-        return 1;
-
-    errno = -errmsg->error;
-    return 0;
+    return 1;
 }
 
 /********************************************************************
@@ -2962,7 +3425,7 @@ int sif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
     struct in6_ifreq ifr6;
     struct ifreq ifr;
     struct in6_rtmsg rt6;
-    struct in6_addr remote_addr;
+    int ret;
 
     if (sock6_fd < 0) {
 	errno = -sock6_fd;
@@ -2976,27 +3439,36 @@ int sif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
 	return 0;
     }
 
-    /* Local interface */
-    memset(&ifr6, 0, sizeof(ifr6));
-    IN6_LLADDR_FROM_EUI64(ifr6.ifr6_addr, our_eui64);
-    ifr6.ifr6_ifindex = ifr.ifr_ifindex;
-    ifr6.ifr6_prefixlen = 128;
-
-    if (ioctl(sock6_fd, SIOCSIFADDR, &ifr6) < 0) {
-	error("sif6addr: ioctl(SIOCSIFADDR): %m (line %d)", __LINE__);
-	return 0;
+    if (kernel_version >= KVERSION(2,1,16)) {
+        /* Set both local address and remote peer address (with route for it) via rtnetlink */
+        ret = sif6addr_rtnetlink(ifr.ifr_ifindex, our_eui64, his_eui64);
+    } else {
+        ret = 0;
     }
 
-    if (kernel_version >= KVERSION(2,1,16)) {
-        /* Set remote peer address (and route for it) */
-        IN6_LLADDR_FROM_EUI64(remote_addr, his_eui64);
-        if (!append_peer_ipv6_address(ifr.ifr_ifindex, &ifr6.ifr6_addr, &remote_addr)) {
-            error("sif6addr: setting remote peer address failed: %m");
+    /*
+     * Linux kernel versions prior 3.11 do not support setting IPv6 peer address
+     * via rtnetlink. So if sif6addr_rtnetlink() fails then try old IOCTL method.
+     */
+    if (!ret) {
+        /* Local interface */
+        memset(&ifr6, 0, sizeof(ifr6));
+        IN6_LLADDR_FROM_EUI64(ifr6.ifr6_addr, our_eui64);
+        ifr6.ifr6_ifindex = ifr.ifr_ifindex;
+        ifr6.ifr6_prefixlen = 128;
+
+        if (ioctl(sock6_fd, SIOCSIFADDR, &ifr6) < 0) {
+            error("sif6addr: ioctl(SIOCSIFADDR): %m (line %d)", __LINE__);
             return 0;
         }
     }
 
-    if (kernel_version < KVERSION(2,1,16)) {
+    if (!ret && !eui64_iszero(his_eui64)) {
+        /*
+         * Linux kernel does not provide AF_INET6 ioctl SIOCSIFDSTADDR for
+         * setting remote peer host address, so set only route to remote host.
+         */
+
         /* Route to remote host */
         memset(&rt6, 0, sizeof(rt6));
         IN6_LLADDR_FROM_EUI64(rt6.rtmsg_dst, his_eui64);
@@ -3053,7 +3525,7 @@ int cif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
     }
     return 1;
 }
-#endif /* INET6 */
+#endif /* PPP_WITH_IPV6CP */
 
 /*
  * get_pty - get a pty master/slave pair and chown the slave side
@@ -3062,7 +3534,7 @@ int cif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
 int
 get_pty(int *master_fdp, int *slave_fdp, char *slave_name, int uid)
 {
-    int i, mfd, sfd = -1;
+    int i, mfd, ret, sfd = -1;
     char pty_name[16];
     struct termios tios;
 
@@ -3100,8 +3572,14 @@ get_pty(int *master_fdp, int *slave_fdp, char *slave_name, int uid)
 		pty_name[5] = 't';
 		sfd = open(pty_name, O_RDWR | O_NOCTTY, 0);
 		if (sfd >= 0) {
-		    fchown(sfd, uid, -1);
-		    fchmod(sfd, S_IRUSR | S_IWUSR);
+		    ret = fchown(sfd, uid, -1);
+		    if (ret != 0) {
+			warn("Couldn't change ownership of %s, %m", pty_name);
+		    }
+		    ret = fchmod(sfd, S_IRUSR | S_IWUSR);
+		    if (ret != 0) {
+			warn("Couldn't change permissions of %s, %m", pty_name);
+		    }
 		    break;
 		}
 		close(mfd);
@@ -3200,99 +3678,6 @@ sifnpmode(int u, int proto, enum NPmode mode)
     return 1;
 }
 
-
-/********************************************************************
- *
- * sipxfaddr - Config the interface IPX networknumber
- */
-
-int sipxfaddr (int unit, unsigned long int network, unsigned char * node )
-{
-    int    result = 1;
-
-#ifdef IPX_CHANGE
-    int    skfd;
-    struct ifreq         ifr;
-    struct sockaddr_ipx *sipx = (struct sockaddr_ipx *) &ifr.ifr_addr;
-
-    skfd = socket (AF_IPX, SOCK_DGRAM, 0);
-    if (skfd < 0) {
-	if (! ok_error (errno))
-	    dbglog("socket(AF_IPX): %m (line %d)", __LINE__);
-	result = 0;
-    }
-    else {
-	memset (&ifr, '\0', sizeof (ifr));
-	strlcpy (ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-
-	memcpy (sipx->sipx_node, node, IPX_NODE_LEN);
-	sipx->sipx_family  = AF_IPX;
-	sipx->sipx_port    = 0;
-	sipx->sipx_network = htonl (network);
-	sipx->sipx_type    = IPX_FRAME_ETHERII;
-	sipx->sipx_action  = IPX_CRTITF;
-/*
- *  Set the IPX device
- */
-	if (ioctl(skfd, SIOCSIFADDR, (caddr_t) &ifr) < 0) {
-	    result = 0;
-	    if (errno != EEXIST) {
-		if (! ok_error (errno))
-		    dbglog("ioctl(SIOCSIFADDR, CRTITF): %m (line %d)", __LINE__);
-	    }
-	    else {
-		warn("ioctl(SIOCSIFADDR, CRTITF): Address already exists");
-	    }
-	}
-	close (skfd);
-    }
-#endif
-    return result;
-}
-
-/********************************************************************
- *
- * cipxfaddr - Clear the information for the IPX network. The IPX routes
- *	       are removed and the device is no longer able to pass IPX
- *	       frames.
- */
-
-int cipxfaddr (int unit)
-{
-    int    result = 1;
-
-#ifdef IPX_CHANGE
-    int    skfd;
-    struct ifreq         ifr;
-    struct sockaddr_ipx *sipx = (struct sockaddr_ipx *) &ifr.ifr_addr;
-
-    skfd = socket (AF_IPX, SOCK_DGRAM, 0);
-    if (skfd < 0) {
-	if (! ok_error (errno))
-	    dbglog("socket(AF_IPX): %m (line %d)", __LINE__);
-	result = 0;
-    }
-    else {
-	memset (&ifr, '\0', sizeof (ifr));
-	strlcpy (ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-
-	sipx->sipx_type    = IPX_FRAME_ETHERII;
-	sipx->sipx_action  = IPX_DLTITF;
-	sipx->sipx_family  = AF_IPX;
-/*
- *  Set the IPX device
- */
-	if (ioctl(skfd, SIOCSIFADDR, (caddr_t) &ifr) < 0) {
-	    if (! ok_error (errno))
-		info("ioctl(SIOCSIFADDR, IPX_DLTITF): %m (line %d)", __LINE__);
-	    result = 0;
-	}
-	close (skfd);
-    }
-#endif
-    return result;
-}
-
 /*
  * Use the hostname as part of the random number seed.
  */
@@ -3300,7 +3685,7 @@ int
 get_host_seed(void)
 {
     int h;
-    char *p = hostname;
+    const char *p;
 
     h = 407;
     for (p = hostname; *p != 0; ++p)
@@ -3316,24 +3701,8 @@ get_host_seed(void)
 int
 sys_check_options(void)
 {
-#ifdef IPX_CHANGE
-/*
- * Disable the IPX protocol if the support is not present in the kernel.
- */
-    char *path;
-
-    if (ipxcp_protent.enabled_flag) {
-	struct stat stat_buf;
-	if (  ((path = path_to_procfs("/net/ipx/interface")) == NULL
-	    && (path = path_to_procfs("/net/ipx_interface")) == NULL)
-	    || lstat(path, &stat_buf) < 0) {
-	    error("IPX support is not present in the kernel\n");
-	    ipxcp_protent.enabled_flag = 0;
-	}
-    }
-#endif
     if (demand && driver_is_old) {
-	option_error("demand dialling is not supported by kernel driver "
+	ppp_option_error("demand dialling is not supported by kernel driver "
 		     "version %d.%d.%d", driver_version, driver_modification,
 		     driver_patch);
 	return 0;
@@ -3350,7 +3719,7 @@ sys_check_options(void)
  * get_time - Get current time, monotonic if possible.
  */
 int
-get_time(struct timeval *tv)
+ppp_get_time(struct timeval *tv)
 {
 /* Old glibc (< 2.3.4) does define CLOCK_MONOTONIC, but kernel may have it.
  * Runtime checking makes it safe. */
