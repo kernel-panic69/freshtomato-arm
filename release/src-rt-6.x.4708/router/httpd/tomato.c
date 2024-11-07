@@ -1795,7 +1795,7 @@ static const nvset_t nvset_list[] = {
 	{ "wg0_postdown",		V_NONE				},
 	{ "wg0_aip",			V_TEXT(0, 128)			},
 	{ "wg0_dns",			V_NONE				},
-	{ "wg0_ka",			V_01				},
+	{ "wg0_ka",			V_RANGE(0, 99)			},
 	{ "wg0_com",			V_RANGE(0, 3)			},
 	{ "wg0_lan",			V_RANGE(0, 15)			},	/* push LANX for wg0 to peers: bit 0 = LAN0, bit 1 = LAN1, bit 2 = LAN2, bit 3 = WAN3 */
 	{ "wg0_rgw",			V_01				},
@@ -1816,7 +1816,7 @@ static const nvset_t nvset_list[] = {
 	{ "wg1_postdown",		V_NONE				},
 	{ "wg1_aip",			V_TEXT(0, 128)			},
 	{ "wg1_dns",			V_NONE				},
-	{ "wg1_ka",			V_01				},
+	{ "wg1_ka",			V_RANGE(0, 99)			},
 	{ "wg1_com",			V_RANGE(0, 3)			},
 	{ "wg1_lan",			V_RANGE(0, 15)			},	/* push LANX for wg1 to peers: bit 0 = LAN0, bit 1 = LAN1, bit 2 = LAN2, bit 3 = WAN3 */
 	{ "wg1_rgw",			V_01				},
@@ -1837,7 +1837,7 @@ static const nvset_t nvset_list[] = {
 	{ "wg2_postdown",		V_NONE				},
 	{ "wg2_aip",			V_TEXT(0, 128)			},
 	{ "wg2_dns",			V_NONE				},
-	{ "wg2_ka",			V_01				},
+	{ "wg2_ka",			V_RANGE(0, 99)			},
 	{ "wg2_com",			V_RANGE(0, 3)			},
 	{ "wg2_lan",			V_RANGE(0, 15)			},	/* push LANX for wg2 to peers: bit 0 = LAN0, bit 1 = LAN1, bit 2 = LAN2, bit 3 = WAN3 */
 	{ "wg2_rgw",			V_01				},
