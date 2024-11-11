@@ -10,8 +10,7 @@
 #include "internal/internal.h"
 #include <libmnl/libmnl.h>
 
-int __build_expect(struct nfnl_subsys_handle *ssh,
-		   struct nfnlhdr *req,
+int __build_expect(struct nfnlhdr *req,
 		   size_t size,
 		   uint16_t type,
 		   uint16_t flags,
@@ -28,8 +27,6 @@ int __build_expect(struct nfnl_subsys_handle *ssh,
 		l3num = exp->expected.orig.l3protonum;
 	else
 		return -1;
-
-	memset(req, 0, size);
 
 	buf = (char *)&req->nlh;
 	nlh = mnl_nlmsg_put_header(buf);

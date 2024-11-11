@@ -291,6 +291,19 @@ enum ctattr_filter {
 };
 #define CTA_FILTER_MAX (__CTA_FILTER_MAX - 1)
 
+#define CTA_FILTER_FLAG_CTA_IP_SRC             (1 << 0)
+#define CTA_FILTER_FLAG_CTA_IP_DST             (1 << 1)
+#define CTA_FILTER_FLAG_CTA_TUPLE_ZONE         (1 << 2)
+#define CTA_FILTER_FLAG_CTA_PROTO_NUM          (1 << 3)
+#define CTA_FILTER_FLAG_CTA_PROTO_SRC_PORT     (1 << 4)
+#define CTA_FILTER_FLAG_CTA_PROTO_DST_PORT     (1 << 5)
+#define CTA_FILTER_FLAG_CTA_PROTO_ICMP_TYPE    (1 << 6)
+#define CTA_FILTER_FLAG_CTA_PROTO_ICMP_CODE    (1 << 7)
+#define CTA_FILTER_FLAG_CTA_PROTO_ICMP_ID      (1 << 8)
+#define CTA_FILTER_FLAG_CTA_PROTO_ICMPV6_TYPE	(1 << 9)
+#define CTA_FILTER_FLAG_CTA_PROTO_ICMPV6_CODE	(1 << 10)
+#define CTA_FILTER_FLAG_CTA_PROTO_ICMPV6_ID	(1 << 11)
+
 #ifdef __cplusplus
 }
 #endif

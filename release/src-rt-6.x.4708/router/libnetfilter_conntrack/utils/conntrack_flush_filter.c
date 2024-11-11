@@ -44,7 +44,7 @@ int main(void)
 					123);
 
 	nfct_callback_register(h, NFCT_T_ALL, cb, NULL);
-	ret = nfct_query(h, NFCT_Q_DUMP_FILTER, filter_dump);
+	ret = nfct_query(h, NFCT_Q_FLUSH_FILTER, filter_dump);
 
 	nfct_filter_dump_destroy(filter_dump);
 

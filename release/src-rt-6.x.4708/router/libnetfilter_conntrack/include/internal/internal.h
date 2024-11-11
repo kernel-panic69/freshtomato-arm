@@ -14,7 +14,6 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <errno.h>
-#include <netinet/in.h>
 
 #include <libnfnetlink/libnfnetlink.h>
 #include <libnetfilter_conntrack/libnetfilter_conntrack.h>

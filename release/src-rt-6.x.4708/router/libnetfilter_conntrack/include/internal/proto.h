@@ -2,6 +2,7 @@
 #define _NFCT_PROTO_H_
 
 #include <stdint.h>
+#include <netinet/in.h>
 #include <linux/icmp.h>
 #include <linux/icmpv6.h>
 

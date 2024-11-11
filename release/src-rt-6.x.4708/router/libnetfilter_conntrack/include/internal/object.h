@@ -6,6 +6,7 @@
 #ifndef _NFCT_OBJECT_H_
 #define _NFCT_OBJECT_H_
 
+#include <internal/bitops.h>
 #include <libnetfilter_conntrack/libnetfilter_conntrack.h>
 
 /*
@@ -223,12 +224,13 @@ struct nfct_filter {
 	enum nfct_filter_logic 	logic[NFCT_FILTER_MAX];
 
 	/*
-	 * This the layer 4 protocol map for filtering. Not more than 
-	 * 255 protocols (maximum is IPPROTO_MAX which is 256). Actually,
-	 * I doubt that anyone can reach such a limit.
+	 * This the layer 4 protocol map for filtering. Not more than 255
+	 * protocols.  Although IPPROTO_MAX is currently 263, there are many
+	 * fewer protocols defined in netinet/in.h, so no one should reach this
+	 * limit.
 	 */
 #define __FILTER_L4PROTO_MAX	255
-	uint32_t 		l4proto_map[IPPROTO_MAX/32];
+	uint32_t 		l4proto_map[DIV_ROUND_UP(IPPROTO_MAX, 32)];
 	uint32_t		l4proto_len;
 
 	struct {
@@ -278,6 +280,10 @@ struct nfct_filter {
 		uint32_t 	mask;
 	} mark[__FILTER_MARK_MAX];
 
+	uint32_t	  zone_elems;
+#define __FILTER_ZONE_MAX	127
+	uint16_t zone[__FILTER_ZONE_MAX];
+
 	uint32_t 		set[1];
 };
 
@@ -286,10 +292,12 @@ struct nfct_filter {
  */
 
 struct nfct_filter_dump {
+	struct nf_conntrack		ct;
 	struct nfct_filter_dump_mark	mark;
 	struct nfct_filter_dump_mark	status;
 	uint8_t				l3num;
 	uint32_t			set;
+	uint16_t			zone;
 };
 
 /*

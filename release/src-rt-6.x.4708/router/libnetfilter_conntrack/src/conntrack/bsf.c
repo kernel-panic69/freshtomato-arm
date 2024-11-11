@@ -9,6 +9,7 @@
 
 #include "internal/internal.h"
 #include "internal/stack.h"
+#include <endian.h>
 #include <linux/filter.h>
 #include <stddef.h>		/* offsetof */
 
@@ -162,7 +163,7 @@ struct jump {
 
 static int
 nfct_bsf_cmp_k_stack(struct sock_filter *this, int k, 
-	       int jump_true, int pos, struct stack *s)
+		     int jump_true, int pos, struct stack *s)
 {
 	struct sock_filter __code = {
 		.code	= BPF_JMP|BPF_JEQ|BPF_K,
@@ -301,10 +302,14 @@ bsf_cmp_subsys(struct sock_filter *this, int pos, uint8_t subsys)
 		[1] = {
 			/* A = skb->data[X+k:B] (subsys_id) */
 			.code	= BPF_LD|BPF_B|BPF_IND,
+#if BYTE_ORDER == BIG_ENDIAN
+			.k	= 0,
+#else
 			.k	= sizeof(uint8_t),
+#endif
 		},
 		[2] = {
-			/* A == subsys ? jump +1 : accept */
+			/* A == subsys ? jump + 1 : accept */
 			.code	= BPF_JMP|BPF_JEQ|BPF_K,
 			.k	= subsys,
 			.jt	= 1,
@@ -331,7 +336,7 @@ add_state_filter_cta(struct sock_filter *this,
 	s = stack_create(sizeof(struct jump), 3 + 32);
 	if (s == NULL) {
 		errno = ENOMEM;
-		return -1;
+		return 0;
 	}
 
 	jt = 1;
@@ -398,7 +403,7 @@ add_state_filter(struct sock_filter *this,
 
 	if (cta[proto].cta_protoinfo == 0 && cta[proto].cta_state == 0) {
 		errno = ENOTSUP;
-		return -1;
+		return 0;
 	}
 
 	return add_state_filter_cta(this,
@@ -443,7 +448,7 @@ bsf_add_proto_filter(const struct nfct_filter *f, struct sock_filter *this)
 	s = stack_create(sizeof(struct jump), 3 + 255);
 	if (s == NULL) {
 		errno = ENOMEM;
-		return -1;
+		return 0;
 	}
 
 	jt = 1;
@@ -515,7 +520,7 @@ bsf_add_addr_ipv4_filter(const struct nfct_filter *f,
 	s = stack_create(sizeof(struct jump), 3 + 127);
 	if (s == NULL) {
 		errno = ENOMEM;
-		return -1;
+		return 0;
 	}
 
 	jt = 1;
@@ -600,7 +605,7 @@ bsf_add_addr_ipv6_filter(const struct nfct_filter *f,
 	s = stack_create(sizeof(struct jump), 3 + 80);
 	if (s == NULL) {
 		errno = ENOMEM;
-		return -1;
+		return 0;
 	}
 
 	jf = 1;
@@ -635,8 +640,8 @@ bsf_add_addr_ipv6_filter(const struct nfct_filter *f,
 					      j);
 			if (k < 3) {
 				j += nfct_bsf_cmp_k_stack_jf(this, ip,
-						jf - j - 1,
-						j, s);
+							     (3 - k) * 3 + 1,
+							     j, s);
 			} else {
 				/* last word: jump if true */
 				j += nfct_bsf_cmp_k_stack(this, ip, jf - j,
@@ -650,7 +655,7 @@ bsf_add_addr_ipv6_filter(const struct nfct_filter *f,
 			this[jmp.line].jt += jmp.jt + j;
 		}
 		if (jmp.jf) {
-			this[jmp.line].jf += jmp.jf + j;
+			this[jmp.line].jf += jmp.jf;
 		}
 	}
 
@@ -699,7 +704,7 @@ bsf_add_mark_filter(const struct nfct_filter *f, struct sock_filter *this)
 	s = stack_create(sizeof(struct jump), 3 + 127);
 	if (s == NULL) {
 		errno = ENOMEM;
-		return -1;
+		return 0;
 	}
 
 	jt = 1;
@@ -724,6 +729,58 @@ bsf_add_mark_filter(const struct nfct_filter *f, struct sock_filter *this)
 		this[jmp.line].jt += jmp.jt + j;
 
 	if (f->logic[NFCT_FILTER_MARK] == NFCT_FILTER_LOGIC_NEGATIVE)
+		j += nfct_bsf_jump_to(this, 1, j);
+
+	j += nfct_bsf_ret_verdict(this, NFCT_FILTER_REJECT, j);
+
+	stack_destroy(s);
+
+	return j;
+}
+
+static int
+bsf_add_zone_filter(const struct nfct_filter *f, struct sock_filter *this)
+{
+	unsigned int i, j;
+	unsigned int jt;
+	struct stack *s;
+	struct jump jmp;
+	struct sock_filter __code = {
+		/* if (A == 0) skip next two */
+		.code = BPF_JMP|BPF_JEQ|BPF_K,
+		.k = 0,
+		.jt = 2,
+		.jf = 0,
+	};
+
+	/* nothing to filter, skip */
+	if (f->zone_elems == 0)
+		return 0;
+
+	/* 127 max filterable zones. One JMP instruction per zone. */
+	s = stack_create(sizeof(struct jump), 127);
+	if (s == NULL) {
+		errno = ENOMEM;
+		return 0;
+	}
+
+	jt = 1;
+	j = 0;
+	j += nfct_bsf_load_payload_offset(this, j);	/* A = nla header offset 		*/
+	j += nfct_bsf_find_attr(this, CTA_ZONE, j);	/* A = CTA_ZONE offset, started from A	*/
+	memcpy(&this[j], &__code, sizeof(__code));	/* if A == 0 skip next two op		*/
+	j += NEW_POS(__code);
+	j += nfct_bsf_x_equal_a(this, j);		/* X = A <CTA_ZONE offset>		*/
+	j += nfct_bsf_load_attr(this, BPF_H, j);	/* A = skb->data[X:X + BPF_H]		*/
+
+	for (i = 0; i < f->zone_elems; i++) {
+		j += nfct_bsf_cmp_k_stack(this, f->zone[i], jt - j, j, s);
+	}
+
+	while (stack_pop(s, &jmp) != -1)
+		this[jmp.line].jt += jmp.jt + j;
+
+	if (f->logic[NFCT_FILTER_ZONE] == NFCT_FILTER_LOGIC_NEGATIVE)
 		j += nfct_bsf_jump_to(this, 1, j);
 
 	j += nfct_bsf_ret_verdict(this, NFCT_FILTER_REJECT, j);
@@ -769,6 +826,9 @@ int __setup_netlink_socket_filter(int fd, struct nfct_filter *f)
 	j += bsf_add_mark_filter(f, &bsf[j]);
 	show_filter(bsf, from, j, "---- check mark ----");
 	from = j;
+	j += bsf_add_zone_filter(f, &bsf[j]);
+	show_filter(bsf, from, j, "---- check zone ----");
+	from = j;
 
 	/* nothing to filter, skip */
 	if (j == 0)
@@ -778,7 +838,7 @@ int __setup_netlink_socket_filter(int fd, struct nfct_filter *f)
 	show_filter(bsf, from, j, "---- final verdict ----");
 	from = j;
 
-	sf.len = (sizeof(struct sock_filter) * j) / sizeof(bsf[0]);
+	sf.len = j;
 	sf.filter = bsf;
 
 	return setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &sf, sizeof(sf));

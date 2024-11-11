@@ -595,6 +595,49 @@ nfct_nlmsg_build(struct nlmsghdr *nlh, const struct nf_conntrack *ct)
 	return 0;
 }
 
+static uint32_t get_flags_from_ct(const struct nf_conntrack *ct, int family)
+{
+	uint32_t tuple_flags = 0;
+
+	if (family == AF_INET) {
+		if (test_bit(ATTR_ORIG_IPV4_SRC, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_IP_SRC;
+		if (test_bit(ATTR_ORIG_IPV4_DST, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_IP_DST;
+
+		if (test_bit(ATTR_ICMP_TYPE, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_PROTO_ICMP_TYPE;
+		if (test_bit(ATTR_ICMP_CODE, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_PROTO_ICMP_CODE;
+		if (test_bit(ATTR_ICMP_ID, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_PROTO_ICMP_ID;
+	} else if (family == AF_INET6) {
+		if (test_bit(ATTR_ORIG_IPV6_SRC, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_IP_SRC;
+		if (test_bit(ATTR_ORIG_IPV6_DST, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_IP_DST;
+
+		if (test_bit(ATTR_ICMP_TYPE, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_PROTO_ICMPV6_TYPE;
+		if (test_bit(ATTR_ICMP_CODE, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_PROTO_ICMPV6_CODE;
+		if (test_bit(ATTR_ICMP_ID, ct->head.set))
+			tuple_flags |= CTA_FILTER_FLAG_CTA_PROTO_ICMPV6_ID;
+	}
+
+	if (test_bit(ATTR_ORIG_ZONE, ct->head.set))
+		tuple_flags |= CTA_FILTER_FLAG_CTA_TUPLE_ZONE;
+
+	if (test_bit(ATTR_ORIG_L4PROTO, ct->head.set))
+		tuple_flags |= CTA_FILTER_FLAG_CTA_PROTO_NUM;
+	if (test_bit(ATTR_ORIG_PORT_SRC, ct->head.set))
+		tuple_flags |= CTA_FILTER_FLAG_CTA_PROTO_SRC_PORT;
+	if (test_bit(ATTR_ORIG_PORT_DST, ct->head.set))
+		tuple_flags |= CTA_FILTER_FLAG_CTA_PROTO_DST_PORT;
+
+	return tuple_flags;
+}
+
 int nfct_nlmsg_build_filter(struct nlmsghdr *nlh,
 			    const struct nfct_filter_dump *filter_dump)
 {
@@ -613,6 +656,39 @@ int nfct_nlmsg_build_filter(struct nlmsghdr *nlh,
 		mnl_attr_put_u32(nlh, CTA_STATUS_MASK,
 				 htonl(filter_dump->status.mask));
 	}
+	if (filter_dump->set & (1 << NFCT_FILTER_DUMP_ZONE)) {
+		mnl_attr_put_u16(nlh, CTA_ZONE, htons(filter_dump->zone));
+	}
+	if (filter_dump->set & (1 << NFCT_FILTER_DUMP_TUPLE)) {
+		const struct nf_conntrack *ct = &filter_dump->ct;
+		struct nlattr *nest;
+		int ret;
 
+		ret = nfct_nlmsg_build(nlh, ct);
+		if (ret == -1)
+			return -1;
+
+		nest = mnl_attr_nest_start(nlh, CTA_FILTER);
+		if (nest == NULL)
+			return -1;
+
+		nfg = mnl_nlmsg_get_payload(nlh);
+
+		if (test_bit(ATTR_ORIG_L3PROTO, ct->head.set)) {
+			if (filter_dump->set & (1 << NFCT_FILTER_DUMP_L3NUM) &&
+			    filter_dump->l3num != ct->head.orig.l3protonum) {
+				errno = EINVAL;
+				return -1;
+			}
+
+			nfg->nfgen_family = ct->head.orig.l3protonum;
+		}
+
+		mnl_attr_put_u32(nlh, CTA_FILTER_ORIG_FLAGS,
+				 get_flags_from_ct(&filter_dump->ct,
+						   nfg->nfgen_family));
+		mnl_attr_put_u32(nlh, CTA_FILTER_REPLY_FLAGS, 0);
+		mnl_attr_nest_end(nlh, nest);
+	}
 	return 0;
 }

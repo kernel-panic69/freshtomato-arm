@@ -40,7 +40,7 @@
  *  - inserting/modifying/deleting entries from the kernel expect table.
  * \section Git Tree
  * The current development version of libnetfilter_conntrack can be accessed at
- * https://git.netfilter.org/cgi-bin/gitweb.cgi?p=libnetfilter_conntrack.git
+ * https://git.netfilter.org/libnetfilter_conntrack/
  *
  * \section Privileges
  * You need the CAP_NET_ADMIN capability in order to allow your application
@@ -307,7 +307,7 @@ int nfct_callback_register2(struct nfct_handle *h,
 
 	assert(h != NULL);
 
-	container = calloc(sizeof(struct __data_container), 1);
+	container = calloc(1, sizeof(struct __data_container));
 	if (container == NULL)
 		return -1;
 
@@ -779,7 +779,9 @@ int nfct_build_conntrack(struct nfnl_subsys_handle *ssh,
 	assert(req != NULL);
 	assert(ct != NULL);
 
-	return __build_conntrack(ssh, req, size, type, flags, ct);
+	memset(req, 0, size);
+
+	return __build_conntrack(req, size, type, flags, ct);
 }
 
 static void nfct_fill_hdr(struct nfnlhdr *req, uint16_t type, uint16_t flags,
@@ -801,31 +803,29 @@ static void nfct_fill_hdr(struct nfnlhdr *req, uint16_t type, uint16_t flags,
 }
 
 static int
-__build_query_ct(struct nfnl_subsys_handle *ssh,
-		 const enum nf_conntrack_query qt,
+__build_query_ct(const enum nf_conntrack_query qt,
 		 const void *data, void *buffer, unsigned int size)
 {
 	struct nfnlhdr *req = buffer;
 	const uint32_t *family = data;
 
-	assert(ssh != NULL);
 	assert(data != NULL);
 	assert(req != NULL);
 
-	memset(req, 0, size);
+	memset(buffer, 0, size);
 
 	switch(qt) {
 	case NFCT_Q_CREATE:
-		__build_conntrack(ssh, req, size, IPCTNL_MSG_CT_NEW, NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK|NLM_F_EXCL, data);
+		__build_conntrack(req, size, IPCTNL_MSG_CT_NEW, NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK|NLM_F_EXCL, data);
 		break;
 	case NFCT_Q_UPDATE:
-		__build_conntrack(ssh, req, size, IPCTNL_MSG_CT_NEW, NLM_F_REQUEST|NLM_F_ACK, data);
+		__build_conntrack(req, size, IPCTNL_MSG_CT_NEW, NLM_F_REQUEST|NLM_F_ACK, data);
 		break;
 	case NFCT_Q_DESTROY:
-		__build_conntrack(ssh, req, size, IPCTNL_MSG_CT_DELETE, NLM_F_REQUEST|NLM_F_ACK, data);
+		__build_conntrack(req, size, IPCTNL_MSG_CT_DELETE, NLM_F_REQUEST|NLM_F_ACK, data);
 		break;
 	case NFCT_Q_GET:
-		__build_conntrack(ssh, req, size, IPCTNL_MSG_CT_GET, NLM_F_REQUEST|NLM_F_ACK, data);
+		__build_conntrack(req, size, IPCTNL_MSG_CT_GET, NLM_F_REQUEST|NLM_F_ACK, data);
 		break;
 	case NFCT_Q_FLUSH:
 		nfct_fill_hdr(req, IPCTNL_MSG_CT_DELETE, NLM_F_ACK, *family,
@@ -833,6 +833,8 @@ __build_query_ct(struct nfnl_subsys_handle *ssh,
 		break;
 	case NFCT_Q_FLUSH_FILTER:
 		nfct_fill_hdr(req, IPCTNL_MSG_CT_DELETE, NLM_F_ACK, *family, 1);
+		if (__build_filter_flush(req, size, data) < 0)
+			return -1;
 		break;
 	case NFCT_Q_DUMP:
 		nfct_fill_hdr(req, IPCTNL_MSG_CT_GET, NLM_F_DUMP, *family,
@@ -843,17 +845,19 @@ __build_query_ct(struct nfnl_subsys_handle *ssh,
 			      *family, NFNETLINK_V0);
 		break;
 	case NFCT_Q_CREATE_UPDATE:
-		__build_conntrack(ssh, req, size, IPCTNL_MSG_CT_NEW, NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK, data);
+		__build_conntrack(req, size, IPCTNL_MSG_CT_NEW, NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK, data);
 		break;
 	case NFCT_Q_DUMP_FILTER:
 		nfct_fill_hdr(req, IPCTNL_MSG_CT_GET, NLM_F_DUMP, AF_UNSPEC,
 			      NFNETLINK_V0);
-		__build_filter_dump(req, size, data);
+		if (__build_filter_dump(req, size, data) < 0)
+			return -1;
 		break;
 	case NFCT_Q_DUMP_FILTER_RESET:
 		nfct_fill_hdr(req, IPCTNL_MSG_CT_GET_CTRZERO, NLM_F_DUMP,
 			      AF_UNSPEC, NFNETLINK_V0);
-		__build_filter_dump(req, size, data);
+		if (__build_filter_dump(req, size, data) < 0)
+			return -1;
 		break;
 	default:
 		errno = ENOTSUP;
@@ -904,7 +908,7 @@ int nfct_build_query(struct nfnl_subsys_handle *ssh,
 		     void *buffer,
 		     unsigned int size)
 {
-	return __build_query_ct(ssh, qt, data, buffer, size);
+	return __build_query_ct(qt, data, buffer, size);
 }
 
 static int __parse_message_type(const struct nlmsghdr *nlh)
@@ -997,7 +1001,7 @@ int nfct_query(struct nfct_handle *h,
 	assert(h != NULL);
 	assert(data != NULL);
 
-	if (__build_query_ct(h->nfnlssh_ct, qt, data, &u.req, size) == -1)
+	if (__build_query_ct(qt, data, &u.req, size) == -1)
 		return -1;
 
 	return nfnl_query(h->nfnlh, &u.req.nlh);
@@ -1029,7 +1033,7 @@ int nfct_send(struct nfct_handle *h,
 	assert(h != NULL);
 	assert(data != NULL);
 
-	if (__build_query_ct(h->nfnlssh_ct, qt, data, &u.req, size) == -1)
+	if (__build_query_ct(qt, data, &u.req, size) == -1)
 		return -1;
 
 	return nfnl_send(h->nfnlh, &u.req.nlh);
@@ -1359,7 +1363,7 @@ void nfct_copy_attr(struct nf_conntrack *ct1,
  */
 struct nfct_filter *nfct_filter_create(void)
 {
-	return calloc(sizeof(struct nfct_filter), 1);
+	return calloc(1, sizeof(struct nfct_filter));
 }
 
 /**
@@ -1498,7 +1502,7 @@ int nfct_filter_detach(int fd)
  */
 struct nfct_filter_dump *nfct_filter_dump_create(void)
 {
-	return calloc(sizeof(struct nfct_filter_dump), 1);
+	return calloc(1, sizeof(struct nfct_filter_dump));
 }
 
 /**
@@ -1545,6 +1549,19 @@ void nfct_filter_dump_set_attr(struct nfct_filter_dump *filter_dump,
 void nfct_filter_dump_set_attr_u8(struct nfct_filter_dump *filter_dump,
 				  const enum nfct_filter_dump_attr type,
 				  uint8_t value)
+{
+	nfct_filter_dump_set_attr(filter_dump, type, &value);
+}
+
+/**
+ * nfct_filter_dump_attr_set_u16 - set u16 dump filter attribute
+ * \param filter dump filter object that we want to modify
+ * \param type filter attribute type
+ * \param value value of the filter attribute using unsigned int (32 bits).
+ */
+void nfct_filter_dump_set_attr_u16(struct nfct_filter_dump *filter_dump,
+				  const enum nfct_filter_dump_attr type,
+				  uint16_t value)
 {
 	nfct_filter_dump_set_attr(filter_dump, type, &value);
 }

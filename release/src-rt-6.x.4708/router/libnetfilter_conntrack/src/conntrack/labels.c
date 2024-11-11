@@ -268,7 +268,7 @@ struct nfct_labelmap *__labelmap_new(const char *name)
 
 	if (added) {
 		map->namecount = maxbit + 1;
-		map->bit_to_name = calloc(sizeof(char *), map->namecount);
+		map->bit_to_name = calloc(map->namecount, sizeof(char *));
 		if (!map->bit_to_name)
 			goto err;
 		make_name_table(map);

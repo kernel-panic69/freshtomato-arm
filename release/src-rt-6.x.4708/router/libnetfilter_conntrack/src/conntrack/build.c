@@ -10,8 +10,7 @@
 #include "internal/internal.h"
 #include <libmnl/libmnl.h>
 
-int __build_conntrack(struct nfnl_subsys_handle *ssh,
-		      struct nfnlhdr *req,
+int __build_conntrack(struct nfnlhdr *req,
 		      size_t size,
 		      uint16_t type,
 		      uint16_t flags,
@@ -26,8 +25,6 @@ int __build_conntrack(struct nfnl_subsys_handle *ssh,
 		errno = EINVAL;
 		return -1;
 	}
-
-	memset(req, 0, size);
 
 	buf = (char *)&req->nlh;
 	nlh = mnl_nlmsg_put_header(buf);

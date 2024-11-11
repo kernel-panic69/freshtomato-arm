@@ -513,7 +513,9 @@ int nfexp_build_expect(struct nfnl_subsys_handle *ssh,
 	assert(req != NULL);
 	assert(exp != NULL);
 
-	return __build_expect(ssh, req, size, type, flags, exp);
+	memset(req, 0, size);
+
+	return __build_expect(req, size, type, flags, exp);
 }
 
 static void nfexp_fill_hdr(struct nfnlhdr *req, uint16_t type, uint16_t flags,
@@ -535,31 +537,29 @@ static void nfexp_fill_hdr(struct nfnlhdr *req, uint16_t type, uint16_t flags,
 }
 
 static int
-__build_query_exp(struct nfnl_subsys_handle *ssh,
-		  const enum nf_conntrack_query qt,
+__build_query_exp(const enum nf_conntrack_query qt,
 		  const void *data, void *buffer, unsigned int size)
 {
 	struct nfnlhdr *req = buffer;
 	const uint8_t *family = data;
 
-	assert(ssh != NULL);
 	assert(data != NULL);
 	assert(req != NULL);
 
-	memset(req, 0, size);
+	memset(buffer, 0, size);
 
 	switch(qt) {
 	case NFCT_Q_CREATE:
-		__build_expect(ssh, req, size, IPCTNL_MSG_EXP_NEW, NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK|NLM_F_EXCL, data);
+		__build_expect(req, size, IPCTNL_MSG_EXP_NEW, NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK|NLM_F_EXCL, data);
 		break;
 	case NFCT_Q_CREATE_UPDATE:
-		__build_expect(ssh, req, size, IPCTNL_MSG_EXP_NEW, NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK, data);
+		__build_expect(req, size, IPCTNL_MSG_EXP_NEW, NLM_F_REQUEST|NLM_F_CREATE|NLM_F_ACK, data);
 		break;
 	case NFCT_Q_GET:
-		__build_expect(ssh, req, size, IPCTNL_MSG_EXP_GET, NLM_F_REQUEST|NLM_F_ACK, data);
+		__build_expect(req, size, IPCTNL_MSG_EXP_GET, NLM_F_REQUEST|NLM_F_ACK, data);
 		break;
 	case NFCT_Q_DESTROY:
-		__build_expect(ssh, req, size, IPCTNL_MSG_EXP_DELETE, NLM_F_REQUEST|NLM_F_ACK, data);
+		__build_expect(req, size, IPCTNL_MSG_EXP_DELETE, NLM_F_REQUEST|NLM_F_ACK, data);
 		break;
 	case NFCT_Q_FLUSH:
 		nfexp_fill_hdr(req, IPCTNL_MSG_EXP_DELETE, NLM_F_ACK, *family,
@@ -612,7 +612,7 @@ int nfexp_build_query(struct nfnl_subsys_handle *ssh,
 		      void *buffer,
 		      unsigned int size)
 {
-	return __build_query_exp(ssh, qt, data, buffer, size);
+	return __build_query_exp(qt, data, buffer, size);
 }
 
 static int __parse_expect_message_type(const struct nlmsghdr *nlh)
@@ -705,7 +705,7 @@ int nfexp_query(struct nfct_handle *h,
 	assert(h != NULL);
 	assert(data != NULL);
 
-	if (__build_query_exp(h->nfnlssh_exp, qt, data, &u.req, size) == -1)
+	if (__build_query_exp(qt, data, &u.req, size) == -1)
 		return -1;
 
 	return nfnl_query(h->nfnlh, &u.req.nlh);
@@ -737,7 +737,7 @@ int nfexp_send(struct nfct_handle *h,
 	assert(h != NULL);
 	assert(data != NULL);
 
-	if (__build_query_exp(h->nfnlssh_exp, qt, data, &u.req, size) == -1)
+	if (__build_query_exp(qt, data, &u.req, size) == -1)
 		return -1;
 
 	return nfnl_send(h->nfnlh, &u.req.nlh);

@@ -25,11 +25,11 @@ struct stack *stack_create(size_t elem_size, int max_elems)
 {
 	struct stack *s;
 
-	s = calloc(sizeof(struct stack), 1);
+	s = calloc(1, sizeof(struct stack));
 	if (s == NULL)
 		return NULL;
 
-	s->data = calloc(elem_size * max_elems, 1);
+	s->data = calloc(max_elems, elem_size);
 	if (s->data == NULL) {
 		free(s);
 		return NULL;
