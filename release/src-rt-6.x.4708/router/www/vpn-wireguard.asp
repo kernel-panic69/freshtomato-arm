@@ -1193,11 +1193,9 @@ function generateWGConfig(unit, name, privkey, psk, ip, port, fwmark, keepalive,
 	if (name != '')
 		content.push('#Alias = '+name+'\n');
 
-	content.push(
-		'Address = '+ip+'/'+interface_nm+'\n',
-		'ListenPort = '+port+'\n',
-		'PrivateKey = '+privkey+'\n'
-	);
+	content.push('Address = '+ip+'/'+interface_nm+'\n',
+	             'ListenPort = '+port+'\n',
+	             'PrivateKey = '+privkey+'\n');
 
 	if (dns != '')
 		content.push('DNS = '+dns+'\n')
@@ -1264,20 +1262,16 @@ function generateWGConfig(unit, name, privkey, psk, ip, port, fwmark, keepalive,
 	if (nvram.wan_hostname && nvram.wan_hostname != 'unknown')
 		router_alias = nvram.wan_hostname;
 
-	content.push(
-		'\n',
-		'[Peer]\n',
-		'#Alias = '+router_alias+'\n',
-		'PublicKey = '+publickey_interface+'\n'
-	);
+	content.push('\n',
+	             '[Peer]\n',
+	             '#Alias = '+router_alias+'\n',
+	             'PublicKey = '+publickey_interface+'\n');
 
 	if (psk != '')
 		content.push('PresharedKey = '+psk+'\n');
 
-	content.push(
-		'AllowedIPs = '+allowed_ips+'\n',
-		'Endpoint = '+router_endpoint+'\n'
-	);
+	content.push('AllowedIPs = '+allowed_ips+'\n',
+	             'Endpoint = '+router_endpoint+'\n');
 
 	if (keepalive)
 		content.push('PersistentKeepalive = '+keepalive+'\n');
@@ -1299,10 +1293,8 @@ function generateWGConfig(unit, name, privkey, psk, ip, port, fwmark, keepalive,
 			if (peer_pubkey == pubkey)
 				continue;
 
-			content.push(
-				'\n',
-				'[Peer]\n'
-			);
+			content.push('\n',
+			             '[Peer]\n');
 
 			if (peer[1].trim() != '')
 				content.push('#Alias = '+peer[1]+'\n');
@@ -1321,8 +1313,16 @@ function generateWGConfig(unit, name, privkey, psk, ip, port, fwmark, keepalive,
 			if (keepalive)
 				content.push('PersistentKeepalive = '+keepalive+'\n');
 
-			if (peer[2].trim() != '')
-				content.push('Endpoint = '+peer[2]+':'+port+'\n');
+			if (peer[2].trim() != '') {
+				/* FQDN or IPv4 */
+				if (peer[2].indexOf('.') >= 0 && peer[2].indexOf(':') >= 0) /* has port */
+					content.push('Endpoint = '+peer[2]+'\n');
+				/* IPv6 */
+				else if (peer[2].indexOf('[') >= 0 && peer[2].indexOf(']') >= 0 && peer[2].indexOf(':') >= 0) /* has port */
+					content.push('Endpoint = '+peer[2]+'\n');
+				else
+					content.push('Endpoint = '+peer[2]+':'+port+'\n');
+			}
 		}
 	}
 
