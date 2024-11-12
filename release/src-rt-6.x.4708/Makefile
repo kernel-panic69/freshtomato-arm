@@ -1106,15 +1106,11 @@ define KernelConfig
 		echo "# CONFIG_FAILSAFE_UPGRADE is not set" >> $(1); \
 	fi; \
 	if [ "$(CONNTRACK_TOOL)" = "y" ]; then \
-		sed -i "/CONFIG_NETFILTER_NETLINK_QUEUE/d" $(1); \
-		echo "CONFIG_NETFILTER_NETLINK_QUEUE=y" >>$(1); \
 		sed -i "/CONFIG_NF_CONNTRACK_EVENTS/d" $(1); \
 		echo "CONFIG_NF_CONNTRACK_EVENTS=y" >>$(1); \
 		sed -i "/CONFIG_NF_CT_NETLINK/d" $(1); \
 		echo "CONFIG_NF_CT_NETLINK=y" >>$(1); \
 	else \
-		sed -i "/CONFIG_NETFILTER_NETLINK_QUEUE/d" $(1); \
-		echo "# CONFIG_NETFILTER_NETLINK_QUEUE is not set" >>$(1); \
 		sed -i "/CONFIG_NF_CONNTRACK_EVENTS/d" $(1); \
 		echo "# CONFIG_NF_CONNTRACK_EVENTS is not set" >>$(1); \
 		sed -i "/CONFIG_NF_CT_NETLINK/d" $(1); \
