@@ -13,6 +13,7 @@ No part of this file may be used without permission.
 <title>[<% ident(); %>] Restoring Defaults...</title>
 <link rel="stylesheet" type="text/css" href="tomato.css?rel=<% version(); %>">
 <% css(); %>
+<script src="tomato.js?rel=<% version(); %>"></script>
 <style>
 div.tomato-grid.container-div {
 	height: 90px;
@@ -27,7 +28,7 @@ div.tomato-grid.container-div {
 <script>
 var n = 90;
 function tick() {
-	var e = document.getElementById('continue');
+	var e = E('continue');
 	e.value = n--;
 	if (n < 0) {
 		e.value = 'Continue';
