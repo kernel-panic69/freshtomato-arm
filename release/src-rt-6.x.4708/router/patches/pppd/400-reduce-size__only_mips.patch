@@ -38,24 +38,29 @@
  }
 --- pppd/pppd/options.c
 +++ pppd/pppd/options.c
-@@ -1189,7 +1189,7 @@
+@@ -1186,10 +1186,10 @@
+ {
+     FILE *fp = stderr;
+     if (in_phase(PHASE_INITIALIZE)) {
++#ifdef NO_OPTSIZE
          fprintf(fp, "%s v%s\n", PACKAGE_NAME, PACKAGE_VERSION);
          fprintf(fp, "Copyright (C) 1999-2022 Paul Mackerras, and others. All rights reserved.\n\n");
  
 -
-+#ifdef NO_OPTSIZE
          fprintf(fp, "License BSD: The 3 clause BSD license <https://opensource.org/licenses/BSD-3-Clause>\n");
          fprintf(fp, "This is free software: you are free to change and redistribute it.\n");
          fprintf(fp, "There is NO WARRANTY, to the extent permitted by law.\n\n");
-@@ -1210,6 +1210,7 @@
+@@ -1210,6 +1210,9 @@
          fprintf(fp, "   mru <n>         Set MRU value to <n> for negotiation\n");
          fprintf(fp, "   show-options    Display an extended list of options\n");
          fprintf(fp, "See pppd(8) for more options.\n");
++#else
++        printf("%s v%s\n", PACKAGE_NAME, PACKAGE_VERSION);
 +#endif
      }
  }
  
-@@ -1233,7 +1234,11 @@
+@@ -1233,7 +1236,11 @@
  showversion(char **argv)
  {
      if (in_phase(PHASE_INITIALIZE)) {
@@ -67,7 +72,7 @@
  	exit(0);
      }
      return 0;
-@@ -1309,7 +1314,11 @@
+@@ -1309,7 +1316,11 @@
      vslprintf(buf, sizeof(buf), fmt, args);
      va_end(args);
      if (in_phase(PHASE_INITIALIZE))
@@ -81,6 +86,22 @@
  
 --- pppd/pppd/plugins/pppoe/pppoe-discovery.c
 +++ pppd/pppd/plugins/pppoe/pppoe-discovery.c
+@@ -32,6 +32,7 @@
+ int pppoe_verbose;
+ static FILE *debugFile;
+ 
++#ifdef NO_OPTSIZE
+ void
+ fatal(const char *fmt, ...)
+ {
+@@ -62,6 +63,7 @@
+     fputc('\n', stderr);
+     va_end(pvar);
+ }
++#endif
+ 
+ void
+ info(const char *fmt, ...)
 @@ -175,7 +177,11 @@
  	    break;
  	case 't':
@@ -174,20 +195,56 @@
  	exit(EXIT_FAILURE);
      }
  
-@@ -270,6 +306,7 @@
+@@ -269,6 +305,7 @@
+ static void
  usage(void)
  {
-     fprintf(stderr, "Usage: pppoe-discovery [options]\n");
 +#ifdef NO_OPTSIZE
+     fprintf(stderr, "Usage: pppoe-discovery [options]\n");
      fprintf(stderr, "Options:\n");
      fprintf(stderr, "   -I if_name     -- Specify interface (mandatory option)\n");
-     fprintf(stderr, "   -D filename    -- Log debugging information in filename.\n");
-@@ -284,4 +321,5 @@
+@@ -284,4 +321,7 @@
  	    "   -W hexvalue    -- Set the Host-Unique to the supplied hex string.\n"
  	    "   -h             -- Print usage information.\n");
      fprintf(stderr, "\npppoe-discovery from pppd " PPPD_VERSION "\n");
++#else
++    printf("Usage: pppoe-discovery [options]\n");
 +#endif
  }
+--- pppd/pppd/pppd.h
++++ pppd/pppd/pppd.h
+@@ -264,8 +264,10 @@
+ /* safe strncpy */
+ size_t strlcat(char *, const char *, size_t);
+ 
++#ifdef NO_OPTSIZE
+ /* log a debug message */
+ void dbglog(const char *, ...);
++#endif
+ 
+ /* log an informational message */
+ void info(const char *, ...);
+@@ -273,6 +275,7 @@
+ /* log a notice-level message */
+ void notice(const char *, ...);
+ 
++#ifdef NO_OPTSIZE
+ /* log a warning message */
+ void warn(const char *, ...);
+ 
+@@ -281,6 +284,12 @@
+ 
+ /* log an error message and die(1) */
+ void fatal(const char *, ...);
++#else
++#define dbglog(a,...)
++#define warn(a,...)
++#define error(a,...)
++#define fatal(a,...) exit(1)
++#endif
+ 
+ /* Say we ran out of memory, and die */
+ void novm(const char *);
 --- pppd/pppd/srp-entry.c
 +++ pppd/pppd/srp-entry.c
 @@ -89,8 +89,10 @@
@@ -213,3 +270,37 @@
  		    idx);
  		exit(1);
  	}
+--- pppd/pppd/utils.c
++++ pppd/pppd/utils.c
+@@ -659,6 +659,7 @@
+ /*
+  * fatal - log an error message and die horribly.
+  */
++#ifdef NO_OPTSIZE
+ void
+ fatal(const char *fmt, ...)
+ {
+@@ -704,6 +705,7 @@
+     logit(LOG_WARNING, fmt, pvar);
+     va_end(pvar);
+ }
++#endif
+ 
+ /*
+  * notice - log a notice-level message.
+@@ -736,6 +738,7 @@
+ /*
+  * dbglog - log a debug message.
+  */
++#ifdef NO_OPTSIZE
+ void
+ dbglog(const char *fmt, ...)
+ {
+@@ -746,6 +749,7 @@
+     logit(LOG_DEBUG, fmt, pvar);
+     va_end(pvar);
+ }
++#endif
+ 
+ /*
+  * dump_packet - print out a packet in readable form if it is interesting.
