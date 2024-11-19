@@ -1,9 +1,11 @@
 /*
-
-	Tomato Firmware
-	Copyright (C) 2006-2009 Jonathan Zarate
-
-*/
+ *
+ * Tomato Firmware
+ * Copyright (C) 2006-2009 Jonathan Zarate
+ *
+ * Fixes/updates (C) 2018 - 2024 pedro
+ *
+ */
 
 
 #include "rc.h"
@@ -116,7 +118,7 @@ void start_jffs2(void)
 #endif
 	) {
 		/* already mounted */
-		notice_set("jffs", format ? "Formatted" : "Loaded");
+		notice_set("jffs", format ? "Formatted and loaded" : "Loaded");
 		return;
 	}
 
@@ -156,7 +158,7 @@ void start_jffs2(void)
 	}
 #endif
 
-	notice_set("jffs", format ? "Formatted" : "Loaded");
+	notice_set("jffs", format ? "Formatted and loaded" : "Loaded");
 
 	if ((p = nvram_safe_get("jffs2_exec")) && (*p)) {
 		chdir("/jffs");
