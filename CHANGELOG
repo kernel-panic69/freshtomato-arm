@@ -5,6 +5,116 @@ FreshTomato-ARM Changelog
 
 
 
+2024.4          2024.11.26
+---------------------------
+
+- Note: users of Wireguard using keep-alive in the router ("Router behind NAT") should review their configuration due to the backward incompatibility of this option
+
+- Add toolchain based on gcc 5.3 and binutils 2.25.1 to the tree and use it
+- kernel: netfilter: xt_conntrack: support matching on port ranges
+- kernel: always enable netfilter queue support to support (ie): https://github.com/bol-van/zapret
+- kernel: always add additional conntrack/netlink modules
+- SDK6: update wireless driver (dual core)
+- SDK714: update wireless driver
+- SDK6 / SDK7: adjust/fix setting a fixed rate for data frames (GUI: advanced-wireless.asp - Setting: Transmission Rate)
+- SDK6 / SDK7: adjust/fix setting a fixed rate for mulitcast/broadcast data frames (GUI: advanced-wireless.asp - Setting: Multicast Rate)
+- busybox: update to 1.37.0
+- php: update to 8.3.13
+- nginx: update to 1.27.2
+- sqlite: update to 3.47.0
+- expat: update to 2.6.4
+- dnsmasq: update to f006be7 (2024.10.04) snapshot
+- libsodium: update to latest 1.0.20-stable
+- nano: update to 8.2
+- openssl-3.0: update to 3.0.15
+- libcurl: update to 8.11.0
+- rom: update CA bundle to 2024-09-24
+- libjson-c: update to 0.18-20240915
+- libjpeg-turbo: update to 3.0.4
+- meson: update to 1.6.0
+- libxml2: update to 2.13.5
+- libpng: update to 1.6.44
+- libzip: update to 1.11.2
+- libusb: update to 1.0.27
+- tor: update to 0.4.8.13
+- iperf: update to 3.17.1
+- libubox: update to eb9bcb6 (2024-03-29) snapshot
+- uqmi: update to 28b48a1 (2024-08-25) snapshot
+- nfs-utils: update to 2.1.1 (no change to 1.3.5-rc6)
+- gettext-tiny: update to 55a8ae90 (2024.09.28) snapshot
+- haveged: update to 1.9.19
+- iptables: update to 1.8.11
+- dropbear: update to 2024.86
+- rp-pppoe: update to 4.0 
+- pppd: update to 2.5.1
+- iptables: update to 1.8.11
+- libnetfilter_conntrack: update to 1.1.0
+- build: add updated toolchain, built with gmp 6.3.0, mpc 1.3.1 and mpfr 4.2.1; also some more patches for gcc 5.3
+- build: add updated toolchain with posix_spawn support in uClibc (librt)
+- build: always install librt
+- build: Makefile: openvpn: fix plugin support
+- build: Makefile: change optimization of libcap-ng to -O3
+- build: Makefile: tune e2fsprogs recipe; enable badblocks also for (all) ARM targets
+- build: Makefile: set default mode for C/C++ depending on toolchain
+- build: Makefile: fix VPN/AIO_Lite/custom images and wireguard (fix arm issue 326 - "Could not create IPv6 socket")
+- build: Makefile: openvpn do not disable debug if TOMATO_EXPERIMENTAL flag is set
+- build: introduce EXTRA_CXXFLAGS
+- build: kernel: enable kernel network namespaces and veth by default
+- build: kernel: build with mtune=cortex-a9 by default
+- build: kernel: build brcm modules in gnu89 mode
+- build: kernel: wireguard: FreshTomato Toolchain 5.3 correction (workaround) for issue "Could not create IPv6 socket"
+- GUI: Dynamic menu and Misc category
+- GUI: basic-network.asp align table style for enable/disabled options (like the VLAN page)
+- GUI: advanced-wlanvifs.asp - align table style for Enabled/Disabled options
+- GUI: vpn-tinc.asp - align table style for Enable/Disable options
+- GUI: status-data.jsx - tweaked thresholds for Amber and Red as they triggered too early
+- GUI: Basic: DDNS: add form for custom interface name for "External IP Checker" in case of non-WAN mode (fix ARM #337)
+- GUI: VPN: OpenVPN server: add ability to generate 2048 byte Diffie-Hellman parameters
+- GUI: VPN: OpenVPN server: add support for ECDH key generation
+- GUI: VPN: OpenVPN server: set ECDH key generation as default
+- GUI: VPN: OpenVPN *: fix issue with (re)starting clients/servers when saving a page but clients/servers are down
+- GUI: VPN: Wireguard: fix issue with (re)starting wireguard when saving a page but given unit is down
+- GUI: VPN: Wireguard: fix tab selection when displaying an error in configuration
+- GUI: VPN: Wireguard: add an extra field for configurable Persistent Keep-Alive
+- GUI: VPN: Wireguard: fix double-ports on peer-config (fix ARM #340)
+- GUI: Port Forwarding: Basic: use ajax to refresh info on page
+- GUI: Port Forwarding: Basic IPv6: use ajax to refresh info on page
+- GUI: Basic: IPv6: use ajax to refresh info on page
+- GUI: Administration: CIFS Client: use ajax to refresh info on page
+- GUI: Port Forwarding: DMZ: use ajax to refresh info on page
+- GUI: Misc: Access Restriction: use ajax to refresh info on page
+- GUI: QoS: Classification: use ajax to refresh info on page
+- GUI: Administration: JFFS: use ajax to refresh info on page; also some fixes
+- GUI: Improve UPnP IGD & PCP/NAT-PMP
+- accel-pptp: add support for pppd 2.5.x
+- busybox: compile mktemp, readlink, stat (and char-classes feature in tr) applets when building with wireguard instead of adding them in posix.sh script - then we can use them in shell too
+- dnsmasq: update DNS records after pruning DHCP leases (added as a patch)
+- ebtables: remove no more needed patch 105
+- httpd: iperf.c: multiple test streams will now be serviced by different threads for client mode (ARM SMP only)
+- httpd: add rel version to each .css script call
+- iptables-1.8.x: remove not needed patch 102 (uClibc implementaion in librt of posix_spawn)
+- libncurses: update recipe, add patches from openwrt
+- minidlna: add patches from debian
+- mwwatchdog - remove console warning when mwwatchdog_debug is set to NULL
+- openvpn: enable (back) management on AIO or ARM images
+- openvpn: show data & control channel handshakes only above log level 3 (verb 3); added as a patch
+- pppd: remove patch 390 (MIPS only) as librt is now always added to the target
+- pptpd: do not build plugins; tune recipe
+- rc: firewall.c: mark UDP packets arriving at all ports to bypass CTF
+- rc: firewall.c: add CTF bypass for NAT loopback (Setting: ALL (default)) only if needed
+- rc: transmission.c: correctly remove the blocklist directory on startup. Also tune tcp_adv_win_scale
+- rc: wireguard: make route-default.sh script nft compatible
+- rom: openssl.cnf: add default commonName
+- samba3: move recipes to router/Makefile and tune them
+- samba: use openwrt patches
+- switch4g: add weird PIN_STATUS because sometimes it happens
+- transmission: patches: revert commit 66dbc261 (add ARC4 implementation inside transmission, disable it in openssl)
+- www: tomato.css: define size of Ethernet Ports State (fix ARM #311)
+- vpnrouting.sh: do not use nslookup
+- vpnrouting.sh: fix order in stopRouting()
+- Asus RT-AC88U: add basic support for Port 5 and RTL8365MB switch - Router LAN Ports 5 to 8
+
+
 2024.3          2024.08.04
 ---------------------------
 
