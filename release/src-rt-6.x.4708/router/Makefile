@@ -673,7 +673,7 @@ ifneq ($(TCONFIG_BCMARM),y)
 else
 	install $(LIBDIR)/librt.so.0 $(TARGETDIR)/lib/librt.so.0
 endif
-ifneq ($(TCONFIG_NGINX)$(TCONFIG_NANO),)
+ifneq ($(TCONFIG_NGINX)$(TCONFIG_NANO)$(TCONFIG_BBT),)
  ifneq ($(TCONFIG_BCMARM),y)
 	install $(LIBDIR)/libstdc++.so.6 $(TARGETDIR)/lib/libstdc++.so.6
  else
