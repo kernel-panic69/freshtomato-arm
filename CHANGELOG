@@ -45,9 +45,8 @@ FreshTomato-ARM Changelog
 - haveged: update to 1.9.19
 - iptables: update to 1.8.11
 - dropbear: update to 2024.86
-- rp-pppoe: update to 4.0 
+- rp-pppoe: update to 4.0
 - pppd: update to 2.5.1
-- iptables: update to 1.8.11
 - libnetfilter_conntrack: update to 1.1.0
 - build: add updated toolchain, built with gmp 6.3.0, mpc 1.3.1 and mpfr 4.2.1; also some more patches for gcc 5.3
 - build: add updated toolchain with posix_spawn support in uClibc (librt)
