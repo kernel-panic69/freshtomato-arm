@@ -1520,7 +1520,7 @@ miniupnpd/stamp-h1:
 	$(call patch_files,miniupnpd)
 	cd miniupnpd && \
 		PKG_CONFIG_LIBDIR="" \
-		./configure --leasefile --vendorcfg --portinuse --firewall=iptables --iptablespath=$(TOP)/$(IPTABLES_TARGET) $(if $(TCONFIG_IPV6),--ipv6,)
+		./configure --leasefile --vendorcfg --portinuse --firewall=iptables --iptablespath=$(TOP)/$(IPTABLES_TARGET) $(if $(TCONFIG_IPV6),--ipv6 --igd2,)
 	@touch $@
 
 miniupnpd: miniupnpd/stamp-h1
