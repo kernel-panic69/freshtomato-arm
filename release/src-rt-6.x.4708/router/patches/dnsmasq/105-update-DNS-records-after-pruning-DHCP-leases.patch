@@ -1,6 +1,6 @@
 --- dnsmasq/src/dnsmasq.c
 +++ dnsmasq/src/dnsmasq.c
-@@ -1556,6 +1556,7 @@
+@@ -1555,6 +1555,7 @@
  	  {
  	    lease_prune(NULL, now);
  	    lease_update_file(now);

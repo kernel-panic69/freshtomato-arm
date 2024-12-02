@@ -317,7 +317,7 @@ void dhcp_packet(time_t now, int pxe_fd)
 	  match.ind = iface_index;
 	  
 	  if (!daemon->if_addrs ||
-	      !iface_enumerate(AF_INET, &match, check_listen_addrs) ||
+	      !iface_enumerate(AF_INET, &match, (callback_t){.af_inet=check_listen_addrs}) ||
 	      !match.matched)
 	    return;
 	  
@@ -330,7 +330,7 @@ void dhcp_packet(time_t now, int pxe_fd)
       if (relay_upstream4(iface_index, mess, (size_t)sz))
 	return;
       
-      if (!iface_enumerate(AF_INET, &parm, complete_context))
+      if (!iface_enumerate(AF_INET, &parm, (callback_t){.af_inet=complete_context}))
 	return;
 
       /* Check for a relay again after iface_enumerate/complete_context has had
@@ -398,6 +398,10 @@ void dhcp_packet(time_t now, int pxe_fd)
       struct in_pktinfo *pkt;
       msg.msg_control = control_u.control;
       msg.msg_controllen = sizeof(control_u);
+
+      /* alignment padding passed to the kernel should not be uninitialised. */
+      memset(&control_u, 0, sizeof(control_u));
+
       cmptr = CMSG_FIRSTHDR(&msg);
       pkt = (struct in_pktinfo *)CMSG_DATA(cmptr);
       pkt->ipi_ifindex = rcvd_iface_index;

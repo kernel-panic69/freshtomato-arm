@@ -2636,8 +2636,11 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 			  {
 			    if (option != 's')
 			      {
+				/* IPv6 address is longest and represented as
+				   xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx
+				   which is 39 chars */
 				if (!(new->prefix = canonicalise_opt(arg)) ||
-				    strlen(new->prefix) > MAXLABEL - INET_ADDRSTRLEN)
+				    strlen(new->prefix) > (MAXLABEL - 39))
 				  ret_err_free(_("bad prefix"), new);
 			      }
 			    else if (strcmp(arg, "local") != 0)
@@ -3411,8 +3414,16 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
     
     case 'q': /* --log-queries */
       set_option_bool(OPT_LOG);
-      if (arg && strcmp(arg, "extra") == 0)
-	set_option_bool(OPT_EXTRALOG);
+      if (arg)
+	{
+	  if (strcmp(arg, "extra") == 0)
+	    set_option_bool(OPT_EXTRALOG);
+	  else if (strcmp(arg, "proto") == 0)
+	    {
+	      set_option_bool(OPT_EXTRALOG);
+	      set_option_bool(OPT_LOG_PROTO);
+	    }
+	}
       break;
 
     case LOPT_MAX_LOGS:  /* --log-async */
@@ -4144,7 +4155,12 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		      }
 		    else if (strcmp(arg, "ignore") == 0)
 		      new->flags |= CONFIG_DISABLE;
-		    else
+		    if (new->hostname)
+		      {
+			dhcp_config_free(new);
+			ret_err(_("DHCP host has multiple names"));
+		      }
+ 		    else
 		      {
 			if (!(new->hostname = canonicalise_opt(arg)) ||
 			    !legal_hostname(new->hostname))
@@ -6019,6 +6035,15 @@ void read_opts(int argc, char **argv, char *compile_opts)
     }
 #endif
 
+#ifdef HAVE_DNSSEC
+  /* Default fast retry on when doing DNSSEC */
+  if (option_bool(OPT_DNSSEC_VALID) && daemon->fast_retry_time == 0)
+    {
+      daemon->fast_retry_timeout = TIMEOUT;
+      daemon->fast_retry_time = DEFAULT_FAST_RETRY;
+    }
+#endif
+  
   /* port might not be known when the address is parsed - fill in here */
   if (daemon->servers)
     {
