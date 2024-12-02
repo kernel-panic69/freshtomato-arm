@@ -4360,10 +4360,10 @@ samba3/source3/Makefile:
 	LINUX_LFS_SUPPORT=yes \
 	ac_cv_path_PYTHON="" \
 	ac_cv_path_PYTHON_CONFIG="" \
-	CFLAGS="$(EXTRACFLAGS) $(CFLAG_OPTIMIZE) $(if $(TCONFIG_BCMARM),-DBCMARM,) $(if $(or $(TCONFIG_BCMARM),$(TCONFIG_NGINX)),-I$(TOP)/libiconv/staged/usr/include,) -I$(TOP)/zlib/staged/usr/include \
-		-DMAX_DEBUG_LEVEL="-1" -D__location__=\\\"\\\" -ffunction-sections -fdata-sections" \
+	CFLAGS="$(EXTRACFLAGS) $(CFLAG_OPTIMIZE) $(if $(TCONFIG_BCMARM),-DBCMARM,) -DMAX_DEBUG_LEVEL=\\\"-1\\\" -D__location__=\\\"\\\" -ffunction-sections -fdata-sections \
+		$(if $(or $(TCONFIG_BCMARM),$(TCONFIG_NGINX)),-I$(TOP)/libiconv/staged/usr/include,) -I$(TOP)/zlib/staged/usr/include" \
 	CPPFLAGS="-DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" \
-	LDFLAGS="$(if $(or $(TCONFIG_BCMARM),$(TCONFIG_NGINX)),-L$(TOP)/libiconv/staged/usr/lib,) -L$(TOP)/zlib/staged/usr/lib -Wl,--gc-sections" \
+	LDFLAGS="$(if $(or $(TCONFIG_BCMARM),$(TCONFIG_NGINX)),-L$(TOP)/libiconv/staged/usr/lib,) -L$(TOP)/zlib/staged/usr/lib -Wl,--gc-sections $(if $(TCONFIG_BCMARM),-lgcc_s,) -ldl -lpthread" \
 	$(CONFIGURE) \
 		--prefix=/usr \
 		--bindir=/usr/bin \
@@ -4392,7 +4392,6 @@ samba3/source3/Makefile:
 		--with-piddir=/var/run/samba \
 		--with-privatedir=/etc/samba \
 		--with-lockdir=/var/lock \
-		--with-syslog \
 		--with-included-popt=no \
 		--with-krb5=no \
 		--with-shared-modules=MODULES \
@@ -4420,7 +4419,7 @@ samba3/source3/Makefile:
 		--without-sys-quotas \
 		--without-utmp \
 		--without-winbind
-	mkdir -p samba3/source3/bin
+	@mkdir -p samba3/source3/bin
 
 samba3: samba3/source3/Makefile
 	@$(SEP)
@@ -4429,11 +4428,11 @@ samba3: samba3/source3/Makefile
 samba3-install:
 	@install -D samba3/source3/bin/samba_multicall $(INSTALLDIR)/samba3/usr/bin/samba_multicall
 	@install -d $(INSTALLDIR)/samba3/usr/sbin/
-	cd $(INSTALLDIR)/samba3/usr/sbin && ln -sf ../bin/samba_multicall smbd && ln -sf ../bin/samba_multicall nmbd
-	cd $(INSTALLDIR)/samba3/usr/bin && ln -sf samba_multicall smbpasswd
+	@cd $(INSTALLDIR)/samba3/usr/sbin && ln -sf ../bin/samba_multicall smbd && ln -sf ../bin/samba_multicall nmbd
+	@cd $(INSTALLDIR)/samba3/usr/bin && ln -sf samba_multicall smbpasswd
 ifeq ($(TCONFIG_BCMARM),y)
-	install -D samba3/codepages/lowcase.dat $(INSTALLDIR)/samba3/usr/share/samba/codepages/lowcase.dat
-	install -D samba3/codepages/upcase.dat $(INSTALLDIR)/samba3/usr/share/samba/codepages/upcase.dat
+	@install -D samba3/codepages/lowcase.dat $(INSTALLDIR)/samba3/usr/share/samba/codepages/lowcase.dat
+	@install -D samba3/codepages/upcase.dat $(INSTALLDIR)/samba3/usr/share/samba/codepages/upcase.dat
 endif
 	$(STRIP) -s $(INSTALLDIR)/samba3/usr/bin/samba_multicall
 
