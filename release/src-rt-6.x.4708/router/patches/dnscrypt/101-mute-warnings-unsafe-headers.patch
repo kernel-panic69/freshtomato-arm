@@ -1,6 +1,6 @@
 --- dnscrypt/configure.ac
 +++ dnscrypt/configure.ac
-@@ -246,12 +246,12 @@
+@@ -245,12 +245,12 @@
  
  AC_SUBST([PROBES_SOURCE])
  

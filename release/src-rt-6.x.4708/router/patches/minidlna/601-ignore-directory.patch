@@ -1,6 +1,6 @@
 --- minidlna/scanner.c
 +++ minidlna/scanner.c
-@@ -813,11 +813,20 @@
+@@ -812,11 +812,20 @@
  		}
  		if( (type == TYPE_DIR) && (access(full_path, R_OK|X_OK) == 0) )
  		{
