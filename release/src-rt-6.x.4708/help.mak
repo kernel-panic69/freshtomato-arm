@@ -7,7 +7,7 @@ help_main:
 	@echo "TENDA ARM Builds"
 	@echo " ac15e          Tenda AC15 VPN"
 	@echo " ac18e          Tenda AC18 VPN"
-	@echo " ac18z          Tenda AC18 AIO"
+	@echo " ac18y          Tenda AC18 AIO_Lite"
 	@echo "BELKIN ARM Builds"
 	@echo " f9ke           Belkin F9K1113v2 VPN"
 	@echo "DLINK ARM Builds"
