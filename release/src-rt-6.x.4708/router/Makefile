@@ -4360,7 +4360,7 @@ samba3/source3/Makefile:
 	LINUX_LFS_SUPPORT=yes \
 	ac_cv_path_PYTHON="" \
 	ac_cv_path_PYTHON_CONFIG="" \
-	CFLAGS="$(EXTRACFLAGS) $(CFLAG_OPTIMIZE) $(if $(TCONFIG_BCMARM),-DBCMARM,) -DMAX_DEBUG_LEVEL=\\\"-1\\\" -D__location__=\\\"\\\" -ffunction-sections -fdata-sections \
+	CFLAGS="$(EXTRACFLAGS) $(CFLAG_OPTIMIZE) $(if $(TCONFIG_BCMARM),-DBCMARM,) -DMAX_DEBUG_LEVEL="-1" -D__location__=\\\"\\\" -ffunction-sections -fdata-sections \
 		$(if $(or $(TCONFIG_BCMARM),$(TCONFIG_NGINX)),-I$(TOP)/libiconv/staged/usr/include,) -I$(TOP)/zlib/staged/usr/include" \
 	CPPFLAGS="-DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" \
 	LDFLAGS="$(if $(or $(TCONFIG_BCMARM),$(TCONFIG_NGINX)),-L$(TOP)/libiconv/staged/usr/lib,) -L$(TOP)/zlib/staged/usr/lib -Wl,--gc-sections $(if $(TCONFIG_BCMARM),-lgcc_s,) -ldl -lpthread" \
