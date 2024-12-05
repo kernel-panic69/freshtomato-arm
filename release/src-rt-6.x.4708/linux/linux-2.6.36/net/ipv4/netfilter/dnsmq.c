@@ -192,7 +192,6 @@ static inline int dnsmq_func(struct sk_buff *skb)
 static int dnsmq_ctrl(struct file *file, const char *buffer, unsigned long length, void *data)
 {
 	char s[32];
-	char str[32];
 	char *ptr;
 	int i, j;
 
