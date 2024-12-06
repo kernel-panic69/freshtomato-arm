@@ -50,7 +50,28 @@ version 2.91
 	not legal in IDNA2008. Stop using the :: compression method,
 	so 1234:: becomes
 	1234-0000-0000-0000-0000-0000-0000-0000.example.com
-	
+
+	Fix broken dhcp-relay on *BSD. Thanks to Harold for finding
+	this problem.
+
+	Add --dhcp-option-pxe config. This acts almost exactly like
+	--dhcp-option except that the defined option is only sent when
+	replying to PXE clients. More importantly, these options are sent
+	in reply PXE clients when dnsmasq in acting in PXE proxy mode. In
+	PXE proxy mode, the set of options sent is defined by the PXE standard
+	and the normal set of options is not sent. This config allows arbitrary
+	options in PXE-proxy replies. A typical use-case is to send option
+	175 to iPXE. Thanks to Jason Berry for finding the requirement for
+	this.
+
+	Support PXE proxy-DHCP and DHCP-relay at the same time.
+        When using PXE proxy-DHCP, dnsmasq supplies PXE information to
+        the client, which also talks to another "normal" DHCP server
+        for address allocation and similar. The normal DHCP server may
+        be on the local network, but it may also be remote, and accessed via
+        a DHCP relay. This change allows dnsmasq to act as both a
+        PXE proxy-DHCP server AND a DHCP relay for the same network.
+
 	
 version 2.90
 	Fix reversion in --rev-server introduced in 2.88 which
