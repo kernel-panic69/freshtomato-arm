@@ -289,7 +289,6 @@ endif
 obj-$(TCONFIG_BCMARM)		+= taskset
 obj-y				+= rc wanuptime rom others www bridge etc pppd rp-pppoe utils$(BCMEX) cstats rstats hotplug2 udevtrigger libusb10 usbmodeswitch
 obj-y				+= $(if $(TCONFIG_BCMARM),libmnl) $(IPSET_TARGET)
-obj-$(TCONFIG_PPTP)		+= accel-pptp
 obj-$(TCONFIG_PPTPD)		+= pptpd
 obj-$(TCONFIG_PROXY)		+= igmpproxy udpxy
 obj-$(TCONFIG_IPERF)		+= iperf
@@ -1681,13 +1680,15 @@ pppd: pppd/Makefile
 
 pppd-install:
 	install -D pppd/pppd/pppd $(INSTALLDIR)/pppd/usr/sbin/pppd
-	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/pppd
 	install -D pppd/chat/chat $(INSTALLDIR)/pppd/usr/sbin/chat
-	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/chat
+	$(STRIP) $(INSTALLDIR)/pppd/usr/sbin/*
+ifeq ($(TCONFIG_PPTP),y)
+	install -D pppd/pppd/plugins/pptp/.libs/pptp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pptp.so
+endif
 ifeq ($(TCONFIG_L2TP),y)
 	install -D pppd/pppd/plugins/pppol2tp/.libs/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
-	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
 endif
+	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
 
 pppd-clean:
 	-@$(MAKE) -C pppd clean
