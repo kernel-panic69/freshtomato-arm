@@ -1695,27 +1695,6 @@ pppd-clean:
 	@rm -f pppd/Makefile
 	$(call unpatch_files,pppd)
 
-accel-pptp/Makefile:
-	$(call patch_files,accel-pptp)
-	cd accel-pptp && \
-		CFLAGS="-g -O2 $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-		CPPFLAGS="-O2 -ffunction-sections -fdata-sections" \
-		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
-		$(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/pppd
-
-accel-pptp: accel-pptp/Makefile
-	@$(SEP)
-	@$(MAKE) -C $@ $(PARALLEL_BUILD)
-
-accel-pptp-install:
-	install -D accel-pptp/src/.libs/pptp.so $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
-	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
-
-accel-pptp-clean:
-	-@$(MAKE) -C accel-pptp clean
-	@rm -f accel-pptp/Makefile
-	$(call unpatch_files,accel-pptp)
-
 pptpd/Makefile:
 	$(call patch_files,pptpd)
 	cd pptpd && \
