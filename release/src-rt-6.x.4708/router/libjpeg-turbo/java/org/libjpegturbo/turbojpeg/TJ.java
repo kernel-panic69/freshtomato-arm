@@ -245,9 +245,9 @@ public final class TJ {
   /**
    * Grayscale pixel format
    *
-   * <p>Each 1-sample pixel represents a luminance (brightness) level from 0 to
-   * the maximum sample value (255 for 8-bit samples, 4095 for 12-bit samples,
-   * and 65535 for 16-bit samples.)
+   * Each 1-sample pixel represents a luminance (brightness) level from 0 to
+   * the maximum sample value  (which is, for instance, 255 for 8-bit samples
+   * or 4095 for 12-bit samples or 65535 for 16-bit samples.)
    */
   public static final int PF_GRAY = 6;
   /**
@@ -300,6 +300,13 @@ public final class TJ {
    * YCCK JPEG images into packed-pixel CMYK images.
    */
   public static final int PF_CMYK = 11;
+  /**
+   * Unknown pixel format
+   *
+   * <p>Currently this is only used by
+   * {@link TJCompressor#loadSourceImage TJCompressor.loadSourceImage()}.
+   */
+  public static final int PF_UNKNOWN = -1;
 
 
   /**
@@ -540,16 +547,26 @@ public final class TJ {
    */
   public static final int PARAM_JPEGHEIGHT = 6;
   /**
-   * JPEG data precision (bits per sample) [decompression only, read-only]
+   * Data precision (bits per sample)
    *
-   * <p>The JPEG image uses the specified number of bits per sample.
+   * <p>The JPEG image uses (decompression) or will use (lossless compression)
+   * the specified number of bits per sample.  This parameter also specifies
+   * the target data precision when loading a PBMPLUS file with
+   * {@link TJCompressor#loadSourceImage TJCompressor.loadSourceImage()} and
+   * the source data precision when saving a PBMPLUS file with
+   * {@link TJDecompressor#saveImage TJDecompressor.saveImage()}.
+   *
+   * <p>The data precision is the number of bits in the maximum sample value,
+   * which may not be the same as the width of the data type used to store the
+   * sample.
    *
    * <p><b>Value</b>
    * <ul>
-   * <li> <code>8</code>, <code>12</code>, or <code>16</code>
+   * <li> <code>8</code> or <code>12</code> for lossy JPEG images;
+   * <code>2</code> to <code>16</code> for lossless JPEG and PBMPLUS images
    * </ul>
    *
-   * <p>12-bit data precision implies {@link #PARAM_OPTIMIZE} unless
+   * <p>12-bit JPEG data precision implies {@link #PARAM_OPTIMIZE} unless
    * {@link #PARAM_ARITHMETIC} is set.
    */
   public static final int PARAM_PRECISION = 7;
@@ -849,7 +866,15 @@ public final class TJ {
    * </ul>
    *
    * <p>This value is stored in or read from the JPEG header.  It does not
-   * affect the contents of the JPEG image.
+   * affect the contents of the JPEG image.  Note that this parameter is set by
+   * {@link TJCompressor#loadSourceImage TJCompressor.loadSourceImage()} when
+   * loading a Windows BMP file that contains pixel density information, and
+   * the value of this parameter is stored to a Windows BMP file by
+   * {@link TJDecompressor#saveImage TJDecompressor.saveImage()} if the value
+   * of {@link #PARAM_DENSITYUNITS} is <code>2</code>.
+   *
+   * <p>This parameter has no effect unless the JPEG colorspace (see
+   * {@link #PARAM_COLORSPACE}) is {@link #CS_YCbCr} or {@link #CS_GRAY}.
    *
    * @see #PARAM_DENSITYUNITS
    */
@@ -865,7 +890,15 @@ public final class TJ {
    * </ul>
    *
    * <p>This value is stored in or read from the JPEG header.  It does not
-   * affect the contents of the JPEG image.
+   * affect the contents of the JPEG image.  Note that this parameter is set by
+   * {@link TJCompressor#loadSourceImage TJCompressor.loadSourceImage()} when
+   * loading a Windows BMP file that contains pixel density information, and
+   * the value of this parameter is stored to a Windows BMP file by
+   * {@link TJDecompressor#saveImage TJDecompressor.saveImage()} if the value
+   * of {@link #PARAM_DENSITYUNITS} is <code>2</code>.
+   *
+   * <p>This parameter has no effect unless the JPEG colorspace (see
+   * {@link #PARAM_COLORSPACE}) is {@link #CS_YCbCr} or {@link #CS_GRAY}.
    *
    * @see #PARAM_DENSITYUNITS
    */
@@ -886,7 +919,15 @@ public final class TJ {
    * </ul>
    *
    * <p>This value is stored in or read from the JPEG header.  It does not
-   * affect the contents of the JPEG image.
+   * affect the contents of the JPEG image.  Note that this parameter is set by
+   * {@link TJCompressor#loadSourceImage TJCompressor.loadSourceImage()} when
+   * loading a Windows BMP file that contains pixel density information, and
+   * the value of this parameter is stored to a Windows BMP file by
+   * {@link TJDecompressor#saveImage TJDecompressor.saveImage()} if the value
+   * is <code>2</code>.
+   *
+   * <p>This parameter has no effect unless the JPEG colorspace (see
+   * {@link #PARAM_COLORSPACE}) is {@link #CS_YCbCr} or {@link #CS_GRAY}.
    *
    * @see #PARAM_XDENSITY
    * @see #PARAM_YDENSITY
@@ -919,43 +960,38 @@ public final class TJ {
    * </ul>
    */
   public static final int PARAM_MAXPIXELS = 24;
-
-
   /**
-   * @deprecated Use {@link #PARAM_BOTTOMUP} instead.
+   * Marker copying behavior [decompression, lossless transformation]
+   *
+   * <p><b>Value [lossless transformation]</b>
+   * <ul>
+   * <li> <code>0</code> Do not copy any extra markers (including comments,
+   * JFIF thumbnails, Exif data, and ICC profile data) from the source image to
+   * the destination image.
+   * <li> <code>1</code> Do not copy any extra markers, except comment (COM)
+   * markers, from the source image to the destination image.
+   * <li> <code>2</code> <i>[default]</i> Copy all extra markers from the
+   * source image to the destination image.
+   * <li> <code>3</code> Copy all extra markers, except ICC profile data (APP2
+   * markers), from the source image to the destination image.
+   * <li> <code>4</code> Do not copy any extra markers, except ICC profile data
+   * (APP2 markers), from the source image to the destination image.
+   * </ul>
+   *
+   * <p>{@link TJTransform#OPT_COPYNONE} overrides this parameter for a
+   * particular transform.  This parameter overrides any ICC profile that was
+   * previously associated with a compressor instance using
+   * {@link TJCompressor#setICCProfile TJCompressor.setICCProfile()} or with a
+   * transformer instance using {@link TJTransformer#setICCProfile
+   * TJTransformer.setICCProfile()}.
+   *
+   * <p>When decompressing, associating a JPEG source image with the
+   * decompressor instance extracts the ICC profile from the source image if
+   * this parameter is set to <code>2</code> or <code>4</code>.
+   * {@link TJDecompressor#getICCProfile} can then be used to retrieve the
+   * profile.
    */
-  @Deprecated
-  public static final int FLAG_BOTTOMUP      = 2;
-  /**
-   * @deprecated Use {@link #PARAM_FASTUPSAMPLE} instead.
-   */
-  @Deprecated
-  public static final int FLAG_FASTUPSAMPLE  = 256;
-  /**
-   * @deprecated Use {@link #PARAM_FASTDCT} instead.
-   */
-  @Deprecated
-  public static final int FLAG_FASTDCT       = 2048;
-  /**
-   * @deprecated Use {@link #PARAM_FASTDCT} instead.
-   */
-  @Deprecated
-  public static final int FLAG_ACCURATEDCT   = 4096;
-  /**
-   * @deprecated Use {@link #PARAM_STOPONWARNING} instead.
-   */
-  @Deprecated
-  public static final int FLAG_STOPONWARNING = 8192;
-  /**
-   * @deprecated Use {@link #PARAM_PROGRESSIVE} instead.
-   */
-  @Deprecated
-  public static final int FLAG_PROGRESSIVE   = 16384;
-  /**
-   * @deprecated Use {@link #PARAM_SCANLIMIT} instead.
-   */
-  @Deprecated
-  public static final int FLAG_LIMITSCANS    = 32768;
+  public static final int PARAM_SAVEMARKERS = 25;
 
 
   /**

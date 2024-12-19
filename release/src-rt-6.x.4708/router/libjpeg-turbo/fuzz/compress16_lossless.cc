@@ -39,7 +39,7 @@
 
 struct test {
   enum TJPF pf;
-  int psv, pt;
+  int precision, psv, pt;
 };
 
 
@@ -51,13 +51,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
   int width = 0, height = 0, fd = -1, i, ti;
   char filename[FILENAME_MAX] = { 0 };
   struct test tests[NUMTESTS] = {
-    { TJPF_RGB, 1, 0 },
-    { TJPF_BGR, 2, 2 },
-    { TJPF_RGBX, 3, 4 },
-    { TJPF_BGRA, 4, 7 },
-    { TJPF_XRGB, 5, 5 },
-    { TJPF_GRAY, 6, 3 },
-    { TJPF_CMYK, 7, 0 }
+    { TJPF_RGB, 16, 1, 0 },
+    { TJPF_BGR, 15, 2, 2 },
+    { TJPF_RGBX, 14, 3, 4 },
+    { TJPF_BGRA, 13, 4, 7 },
+    { TJPF_XRGB, 16, 5, 5 },
+    { TJPF_GRAY, 16, 6, 3 },
+    { TJPF_CMYK, 16, 7, 0 }
   };
 
   snprintf(filename, FILENAME_MAX, "/tmp/libjpeg-turbo_compress_fuzz.XXXXXX");
@@ -74,6 +74,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     /* Test non-default compression options on specific iterations. */
     tj3Set(handle, TJPARAM_BOTTOMUP, ti == 0);
     tj3Set(handle, TJPARAM_NOREALLOC, ti != 2);
+    tj3Set(handle, TJPARAM_PRECISION, tests[ti].precision);
     tj3Set(handle, TJPARAM_RESTARTROWS, ti == 0 || ti == 6 ? 1 : 0);
 
     tj3Set(handle, TJPARAM_MAXPIXELS, 1048576);
@@ -83,9 +84,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
                                  &pf)) == NULL)
       continue;
 
-    maxBufSize = tj3JPEGBufSize(width, height, TJSAMP_444);
+    dstSize = maxBufSize = tj3JPEGBufSize(width, height, TJSAMP_444);
     if (tj3Get(handle, TJPARAM_NOREALLOC)) {
-      if ((dstBuf = (unsigned char *)tj3Alloc(maxBufSize)) == NULL)
+      if ((dstBuf = (unsigned char *)tj3Alloc(dstSize)) == NULL)
         goto bailout;
     } else
       dstBuf = NULL;
