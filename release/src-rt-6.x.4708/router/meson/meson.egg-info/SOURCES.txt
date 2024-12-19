@@ -2933,6 +2933,12 @@ test cases/frameworks/37 gir cpp/foo.cpp
 test cases/frameworks/37 gir cpp/foo.h
 test cases/frameworks/37 gir cpp/meson.build
 test cases/frameworks/37 gir cpp/test.json
+test cases/frameworks/38 gir both_libraries/bar.c
+test cases/frameworks/38 gir both_libraries/bar.h
+test cases/frameworks/38 gir both_libraries/foo.c
+test cases/frameworks/38 gir both_libraries/foo.h
+test cases/frameworks/38 gir both_libraries/meson.build
+test cases/frameworks/38 gir both_libraries/test.json
 test cases/frameworks/4 qt/main.cpp
 test cases/frameworks/4 qt/mainWindow.cpp
 test cases/frameworks/4 qt/mainWindow.h
@@ -3709,6 +3715,8 @@ test cases/unit/121 executable suffix/main.c
 test cases/unit/121 executable suffix/meson.build
 test cases/unit/122 reconfigure base options/meson.build
 test cases/unit/122 reconfigure base options/subprojects/sub/meson.build
+test cases/unit/123 pkgsubproj/meson.build
+test cases/unit/123 pkgsubproj/subprojects/sub/meson.build
 test cases/unit/13 reconfigure/meson.build
 test cases/unit/14 testsetup selection/main.c
 test cases/unit/14 testsetup selection/meson.build

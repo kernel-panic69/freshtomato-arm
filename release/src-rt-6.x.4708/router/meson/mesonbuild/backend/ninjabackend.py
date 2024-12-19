@@ -2124,7 +2124,7 @@ class NinjaBackend(backends.Backend):
             # ... but then add rustc's sysroot to account for rustup
             # installations
             for rpath_arg in rpath_args:
-                args += ['-C', 'link-arg=' + rpath_arg + ':' + os.path.join(rustc.get_sysroot(), 'lib')]
+                args += ['-C', 'link-arg=' + rpath_arg + ':' + rustc.get_target_libdir()]
 
         proc_macro_dylib_path = None
         if getattr(target, 'rust_crate_type', '') == 'proc-macro':
@@ -2369,7 +2369,7 @@ class NinjaBackend(backends.Backend):
 
                 options = self._rsp_options(compiler)
                 self.add_rule(NinjaRule(rule, command, args, description, **options, extra=pool))
-            if self.environment.machines[for_machine].is_aix():
+            if self.environment.machines[for_machine].is_aix() and complist:
                 rule = 'AIX_LINKER{}'.format(self.get_rule_suffix(for_machine))
                 description = 'Archiving AIX shared library'
                 cmdlist = compiler.get_command_to_archive_shlib()
