@@ -5,6 +5,36 @@ FreshTomato-ARM Changelog
 
 
 
+2024.5          2024.12.24
+---------------------------
+
+- Note: mainly a bug fix release
+
+- kernel: netfilter: xt_connlimit: update to work with iptables 1.8.10+ see: https://www.linksysinfo.org/index.php?threads/iptables-issue-with-ft-2024-4-aio.78937/ 
+- kernel: netfilter: xt_connmark: update to work with iptables 1.8.10+ see: https://www.linksysinfo.org/index.php?threads/iptables-issue-with-ft-2024-4-aio.78937/ 
+- kernel: netfilter: ct_extend: define NF_CT_EXT_* as needed
+- kernel: netfilter: nf_nat: define nat_pptp_info as needed
+- kernel: netfilter: nf_nat: no IP_NAT_RANGE_MAP_IPS flags when alloc_null_binding()
+- kernel sdk7/sdk714: netfilter: xt_iprange: add IPv6 match debug print code
+- nginx: update to 1.27.3
+- sqlite: update to 3.47.2
+- php: update to 8.3.14
+- dnsmasq: update to v2.91test2
+- libcurl: update to 8.11.1
+- meson: update to 1.6.1
+- iperf: update to 3.18
+- libjpeg-turbo: update to 3.1.0
+- rom: update CA bundle to 2024-11-26
+- GUI: QoS: Basic Settings: fix displaying warnings on Advanced themes
+- build: compile AIO_Lite instead of AIO for Tenda AC18 because of size
+- build: compile target r1do (Xiaomi R1D) with TINC, IPERF and MDNS instead of TOR because of size (fix ARM #344)
+- busybox: revert changes to ntpd applet in 1.37.0 (ntpd server returns bogus data), added as a patch
+- miniupnpd: Init IPv6 firewall correctly and compile daemon with IGDv2 but disable it at runtime
+- miniupnpd: restart daemon if IPv6 address changes OR new (Case DHCPv6)
+- pppd: use pptp plugin maintaned by openwrt team instead of the one from accel-pptp
+- samba: fix issue with auth, see: https://www.linksysinfo.org/index.php?threads/2024-4-possible-authenticated-samba-share-issue.78938/
+
+
 2024.4          2024.11.26
 ---------------------------
 
