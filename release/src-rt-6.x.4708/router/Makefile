@@ -1688,7 +1688,9 @@ endif
 ifeq ($(TCONFIG_L2TP),y)
 	install -D pppd/pppd/plugins/pppol2tp/.libs/pppol2tp.so $(INSTALLDIR)/pppd/usr/lib/pppd/pppol2tp.so
 endif
+ifeq ($(or $(TCONFIG_PPTP),$(TCONFIG_L2TP)),y)
 	$(STRIP) $(INSTALLDIR)/pppd/usr/lib/pppd/*.so
+endif
 
 pppd-clean:
 	-@$(MAKE) -C pppd clean
