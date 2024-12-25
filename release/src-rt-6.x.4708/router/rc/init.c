@@ -4914,7 +4914,7 @@ static int init_nvram(void)
 			nvram_set("wl0_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -4981,7 +4981,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5093,7 +5093,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5155,7 +5155,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5222,7 +5222,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5284,7 +5284,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5349,7 +5349,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5417,7 +5417,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5488,7 +5488,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5553,7 +5553,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5653,7 +5653,7 @@ static int init_nvram(void)
 
 			/* usb settings */
 			nvram_set("usb_ohci", "1"); /* USB 1.1 */
-			nvram_set("usb_usb3", "1"); /* USB 3.0 */
+			nvram_set("usb_usb3", "0"); /* USB 3.0 */
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -5893,7 +5893,7 @@ static int init_nvram(void)
 
 			/* usb settings */
 			nvram_set("usb_ohci", "1"); /* USB 1.1 */
-			nvram_set("usb_usb3", "1"); /* USB 3.0 */
+			nvram_set("usb_usb3", "0"); /* USB 3.0 */
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -6099,7 +6099,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -6358,7 +6358,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -6616,7 +6616,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -6873,7 +6873,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -7129,7 +7129,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -7400,7 +7400,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -7665,7 +7665,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -7946,7 +7946,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -8248,7 +8248,7 @@ static int init_nvram(void)
 			}
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -8740,7 +8740,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -9291,7 +9291,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -9397,7 +9397,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -9630,7 +9630,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -9860,7 +9860,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -10099,7 +10099,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -10175,7 +10175,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -10253,7 +10253,7 @@ static int init_nvram(void)
 			nvram_set("wl1_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -10335,7 +10335,7 @@ static int init_nvram(void)
 			nvram_set("wl2_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -10485,7 +10485,7 @@ static int init_nvram(void)
 			nvram_set("wl2_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
@@ -10808,7 +10808,7 @@ static int init_nvram(void)
 			nvram_set("wl2_hwaddr", s);
 
 			/* usb3.0 settings */
-			nvram_set("usb_usb3", "1");
+			nvram_set("usb_usb3", "0");
 			nvram_set("xhci_ports", "1-1");
 			nvram_set("ehci_ports", "2-1 2-2");
 			nvram_set("ohci_ports", "3-1 3-2");
