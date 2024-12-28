@@ -186,11 +186,15 @@ connlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	int connections;
 
 	ct = nf_ct_get(skb, &ctinfo);
-	if (ct != NULL)
-		tuple_ptr = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-	else if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb),
-				    par->family, &tuple))
+	if (ct != NULL) {
+		if (info->flags & XT_CONNLIMIT_DADDR)
+			tuple_ptr = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+		else
+			tuple_ptr = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+	} else if (!nf_ct_get_tuplepr(skb, skb_network_offset(skb),
+				    par->family, &tuple)) {
 		goto hotdrop;
+	}
 
 	if (par->family == NFPROTO_IPV6) {
 		const struct ipv6hdr *iph = ipv6_hdr(skb);
@@ -207,11 +211,9 @@ connlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	                         &info->mask, par->family);
 	spin_unlock_bh(&info->data->lock);
 
-	if (connections < 0) {
+	if (connections < 0)
 		/* kmalloc failed, drop it entirely */
-		par->hotdrop = true;
-		return false;
-	}
+		goto hotdrop;
 
 	return (connections > info->limit) ^
 	       !!(info->flags & XT_CONNLIMIT_INVERT);

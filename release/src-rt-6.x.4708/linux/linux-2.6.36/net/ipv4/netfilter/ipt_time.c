@@ -121,9 +121,9 @@ checkentry(const char *tablename,
 	return 1;
 }
 
-static struct ipt_match time_match = {
+static struct xt_match time_match = {
 	.name = "time",
-	.family = AF_INET,
+	.family = NFPROTO_IPV4,
 	.match = &match,
 	.matchsize = sizeof(struct ipt_time_info),
 	.checkentry = &checkentry,

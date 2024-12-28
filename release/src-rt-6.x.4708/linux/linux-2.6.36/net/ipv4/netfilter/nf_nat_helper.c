@@ -258,7 +258,7 @@ nf_nat_mangle_udp_packet(struct sk_buff *skb,
 
 	if (skb->ip_summed != CHECKSUM_PARTIAL) {
 		if (!(rt->rt_flags & RTCF_LOCAL) &&
-		    skb->dev->features & NETIF_F_V4_CSUM) {
+		    (!skb->dev || skb->dev->features & NETIF_F_V4_CSUM)) {
 			skb->ip_summed = CHECKSUM_PARTIAL;
 			skb->csum_start = skb_headroom(skb) +
 					  skb_network_offset(skb) +

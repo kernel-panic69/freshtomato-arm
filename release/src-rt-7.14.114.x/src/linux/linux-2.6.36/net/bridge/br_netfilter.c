@@ -64,22 +64,24 @@ static int brnf_filter_pppoe_tagged __read_mostly = 0;
 
 static inline __be16 vlan_proto(const struct sk_buff *skb)
 {
-	return vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
+	if (vlan_tx_tag_present(skb))
+		return skb->protocol;
+	else if (skb->protocol == htons(ETH_P_8021Q))
+		return vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
+	else
+		return 0;
 }
 
 #define IS_VLAN_IP(skb) \
-	(skb->protocol == htons(ETH_P_8021Q) && \
-	 vlan_proto(skb) == htons(ETH_P_IP) && 	\
+	(vlan_proto(skb) == htons(ETH_P_IP) && \
 	 brnf_filter_vlan_tagged)
 
 #define IS_VLAN_IPV6(skb) \
-	(skb->protocol == htons(ETH_P_8021Q) && \
-	 vlan_proto(skb) == htons(ETH_P_IPV6) &&\
+	(vlan_proto(skb) == htons(ETH_P_IPV6) && \
 	 brnf_filter_vlan_tagged)
 
 #define IS_VLAN_ARP(skb) \
-	(skb->protocol == htons(ETH_P_8021Q) &&	\
-	 vlan_proto(skb) == htons(ETH_P_ARP) &&	\
+	(vlan_proto(skb) == htons(ETH_P_ARP) &&	\
 	 brnf_filter_vlan_tagged)
 
 static inline __be16 pppoe_proto(const struct sk_buff *skb)
@@ -130,17 +132,18 @@ void br_netfilter_rtable_init(struct net_bridge *br)
 
 static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
 {
-	if (!br_port_exists(dev))
-		return NULL;
-	return &br_port_get_rcu(dev)->br->fake_rtable;
+	struct net_bridge_port *port;
+
+	port = br_port_get_rcu(dev);
+	return port ? &port->br->fake_rtable : NULL;
 }
 
 static inline struct net_device *bridge_parent(const struct net_device *dev)
 {
-	if (!br_port_exists(dev))
-		return NULL;
+	struct net_bridge_port *port;
 
-	return br_port_get_rcu(dev)->br->dev;
+	port = br_port_get_rcu(dev);
+	return port ? port->br->dev : NULL;
 }
 
 static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)

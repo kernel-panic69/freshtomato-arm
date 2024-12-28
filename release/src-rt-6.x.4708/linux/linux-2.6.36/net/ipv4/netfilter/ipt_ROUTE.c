@@ -184,7 +184,7 @@ static unsigned int route_oif(const struct ipt_route_target_info *route_info,
 	case 1:
 		dev_put(dev_out);
 		if (route_info->flags & IPT_ROUTE_CONTINUE)
-			return IPT_CONTINUE;
+			return XT_CONTINUE;
 
 		ip_direct_send(skb);
 		return NF_STOLEN;
@@ -258,7 +258,7 @@ static unsigned int route_gw(const struct ipt_route_target_info *route_info,
 		return NF_DROP;
 
 	if (route_info->flags & IPT_ROUTE_CONTINUE)
-		return IPT_CONTINUE;
+		return XT_CONTINUE;
 
 	ip_direct_send(skb);
 	return NF_STOLEN;
@@ -354,7 +354,7 @@ static unsigned int ipt_route_target(struct sk_buff *skb,
 		if (!skb) {
 			if (net_ratelimit()) 
 				pr_debug(KERN_DEBUG "ipt_ROUTE: copy failed!\n");
-			return IPT_CONTINUE;
+			return XT_CONTINUE;
 		}
 	}
 
@@ -381,11 +381,11 @@ static unsigned int ipt_route_target(struct sk_buff *skb,
 	} else {
 		if (net_ratelimit()) 
 			pr_debug(KERN_DEBUG "ipt_ROUTE: no parameter !\n");
-		res = IPT_CONTINUE;
+		res = XT_CONTINUE;
 	}
 
 	if ((route_info->flags & IPT_ROUTE_TEE))
-		res = IPT_CONTINUE;
+		res = XT_CONTINUE;
 
 	return res;
 }
@@ -395,9 +395,9 @@ static int ipt_route_checkentry(const struct xt_tgchk_param *par)
 }
 
 
-static struct ipt_target ipt_route_reg = {
+static struct xt_target ipt_route_reg = {
 	.name = "ROUTE",
-	.family	= AF_INET,
+	.family	= NFPROTO_IPV4,
 	.target = ipt_route_target,
 	.targetsize = sizeof(struct ipt_route_target_info),
 	.checkentry = ipt_route_checkentry,

@@ -67,7 +67,7 @@ struct nf_ct_event_notifier {
 	int (*fcn)(unsigned int events, struct nf_ct_event *item);
 };
 
-extern struct nf_ct_event_notifier *nf_conntrack_event_cb;
+extern struct nf_ct_event_notifier __rcu *nf_conntrack_event_cb;
 extern int nf_conntrack_register_notifier(struct nf_ct_event_notifier *nb);
 extern void nf_conntrack_unregister_notifier(struct nf_ct_event_notifier *nb);
 
@@ -83,9 +83,6 @@ nf_conntrack_event_cache(enum ip_conntrack_events event, struct nf_conn *ct)
 
 	e = nf_ct_ecache_find(ct);
 	if (e == NULL)
-		return;
-
-	if (!(e->ctmask & (1 << event)))
 		return;
 
 	set_bit(event, &e->cache);
@@ -167,7 +164,7 @@ struct nf_exp_event_notifier {
 	int (*fcn)(unsigned int events, struct nf_exp_event *item);
 };
 
-extern struct nf_exp_event_notifier *nf_expect_event_cb;
+extern struct nf_exp_event_notifier __rcu *nf_expect_event_cb;
 extern int nf_ct_expect_register_notifier(struct nf_exp_event_notifier *nb);
 extern void nf_ct_expect_unregister_notifier(struct nf_exp_event_notifier *nb);
 

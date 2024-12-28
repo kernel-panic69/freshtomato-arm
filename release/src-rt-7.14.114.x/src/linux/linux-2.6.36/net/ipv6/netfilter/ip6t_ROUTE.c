@@ -186,7 +186,7 @@ route6_oif(const struct ip6t_route_target_info *route_info,
 			DEBUGP("ip6t_ROUTE: oif interface %s not found\n", route_info->oif);
 
 		if (route_info->flags & IP6T_ROUTE_CONTINUE)
-			return IP6T_CONTINUE;
+			return XT_CONTINUE;
 		else
 			return NF_DROP;
 	}
@@ -195,7 +195,7 @@ route6_oif(const struct ip6t_route_target_info *route_info,
 	if (route6(skb, ifindex, route_info)) {
 		dev_put(dev_out);
 		if (route_info->flags & IP6T_ROUTE_CONTINUE)
-			return IP6T_CONTINUE;
+			return XT_CONTINUE;
 		
 		ip_direct_send(skb);
 		return NF_STOLEN;
@@ -210,7 +210,7 @@ route6_gw(const struct ip6t_route_target_info *route_info,
 {
 	if (route6(skb, 0, route_info)) {
 		if (route_info->flags & IP6T_ROUTE_CONTINUE)
-			return IP6T_CONTINUE;
+			return XT_CONTINUE;
 
 		ip_direct_send(skb);
 		return NF_STOLEN;
@@ -313,7 +313,7 @@ target(struct sk_buff *skb,
 		if (!skb) {
 			if (net_ratelimit()) 
 				DEBUGP(KERN_DEBUG "ip6t_ROUTE: copy failed!\n");
-			return IP6T_CONTINUE;
+			return XT_CONTINUE;
 		}
 	}
 
@@ -325,11 +325,11 @@ do_it:
 	} else {
 		if (net_ratelimit()) 
 			DEBUGP(KERN_DEBUG "ip6t_ROUTE: no parameter !\n");
-		res = IP6T_CONTINUE;
+		res = XT_CONTINUE;
 	}
 
 	if ((route_info->flags & IP6T_ROUTE_TEE))
-		res = IP6T_CONTINUE;
+		res = XT_CONTINUE;
 
 	return res;
 }

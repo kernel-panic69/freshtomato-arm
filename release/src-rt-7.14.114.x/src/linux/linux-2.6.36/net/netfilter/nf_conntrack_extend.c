@@ -16,7 +16,7 @@
 #include <linux/skbuff.h>
 #include <net/netfilter/nf_conntrack_extend.h>
 
-static struct nf_ct_ext_type *nf_ct_ext_types[NF_CT_EXT_NUM];
+static struct nf_ct_ext_type __rcu *nf_ct_ext_types[NF_CT_EXT_NUM];
 static DEFINE_MUTEX(nf_ct_ext_type_mutex);
 
 void __nf_ct_ext_destroy(struct nf_conn *ct)
@@ -140,15 +140,16 @@ static void update_alloc_size(struct nf_ct_ext_type *type)
 	/* This assumes that extended areas in conntrack for the types
 	   whose NF_CT_EXT_F_PREALLOC bit set are allocated in order */
 	for (i = min; i <= max; i++) {
-		t1 = nf_ct_ext_types[i];
+		t1 = rcu_dereference_protected(nf_ct_ext_types[i],
+				lockdep_is_held(&nf_ct_ext_type_mutex));
 		if (!t1)
 			continue;
 
-		t1->alloc_size = sizeof(struct nf_ct_ext)
-				 + ALIGN(sizeof(struct nf_ct_ext), t1->align)
-				 + t1->len;
+		t1->alloc_size = ALIGN(sizeof(struct nf_ct_ext), t1->align) +
+				 t1->len;
 		for (j = 0; j < NF_CT_EXT_NUM; j++) {
-			t2 = nf_ct_ext_types[j];
+			t2 = rcu_dereference_protected(nf_ct_ext_types[j],
+				lockdep_is_held(&nf_ct_ext_type_mutex));
 			if (t2 == NULL || t2 == t1 ||
 			    (t2->flags & NF_CT_EXT_F_PREALLOC) == 0)
 				continue;
