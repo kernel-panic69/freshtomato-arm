@@ -71,6 +71,7 @@ RUN apt-get update \
   util-linux \
   bsdmainutils \
   autoconf-archive \
+  libltdl-dev \
   && dpkg --add-architecture i386 \
   && apt-get update \
   && apt-get install --no-install-suggests --no-install-recommends -y \
