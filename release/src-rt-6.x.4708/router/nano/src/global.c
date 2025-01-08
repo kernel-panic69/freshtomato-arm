@@ -921,23 +921,26 @@ void shortcut_init(void)
 
 #ifndef NANO_TINY
 	add_to_funcs(to_prev_word, MMAIN,
-			/* TRANSLATORS: Try to keep the next ten strings at most 12 characters. */
+			/* TRANSLATORS: Try to keep the next four strings at most 12 characters. */
 			N_("Prev Word"), WHENHELP(prevword_gist), TOGETHER);
 	add_to_funcs(to_next_word, MMAIN,
 			N_("Next Word"), WHENHELP(nextword_gist), TOGETHER);
 #endif
 
 	add_to_funcs(do_home, MMAIN,
+			/* TRANSLATORS: These two mean: "to beginning of line", "to end of line". */
 			N_("Home"), WHENHELP(home_gist), TOGETHER);
 	add_to_funcs(do_end, MMAIN,
 			N_("End"), WHENHELP(end_gist), BLANKAFTER);
 
 	add_to_funcs(do_up, MMAIN|MBROWSER|MHELP,
+			/* TRANSLATORS: Try to keep the next two strings at most 10 characters. */
 			N_("Prev Line"), WHENHELP(prevline_gist), TOGETHER);
 	add_to_funcs(do_down, MMAIN|MBROWSER|MHELP,
 			N_("Next Line"), WHENHELP(nextline_gist), TOGETHER);
 #if !defined(NANO_TINY) || defined(ENABLE_HELP)
 	add_to_funcs(do_scroll_up, MMAIN,
+			/* TRANSLATORS: Try to keep the next four strings at most 12 characters. */
 			N_("Scroll Up"), WHENHELP(scrollup_gist), TOGETHER);
 	add_to_funcs(do_scroll_down, MMAIN,
 			N_("Scroll Down"), WHENHELP(scrolldown_gist), BLANKAFTER);
@@ -963,7 +966,7 @@ void shortcut_init(void)
 #endif
 
 	add_to_funcs(do_page_up, MMAIN|MHELP,
-			/* TRANSLATORS: Try to keep the next six strings at most 12 characters. */
+			/* TRANSLATORS: Try to keep the next four strings at most 10 characters. */
 			N_("Prev Page"), WHENHELP(prevpage_gist), TOGETHER);
 	add_to_funcs(do_page_down, MMAIN|MHELP,
 			N_("Next Page"), WHENHELP(nextpage_gist), TOGETHER);
@@ -975,6 +978,7 @@ void shortcut_init(void)
 
 #ifdef ENABLE_MULTIBUFFER
 	add_to_funcs(switch_to_prev_buffer, MMAIN,
+			/* TRANSLATORS: Try to keep these two strings at most 15 characters. */
 			N_("Prev File"), WHENHELP(prevfile_gist), TOGETHER);
 	add_to_funcs(switch_to_next_buffer, MMAIN,
 			N_("Next File"), WHENHELP(nextfile_gist), BLANKAFTER);

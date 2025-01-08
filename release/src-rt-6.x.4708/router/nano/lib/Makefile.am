@@ -599,12 +599,6 @@ EXTRA_DIST += fd-hook.h
 
 ## end   gnulib module fd-hook
 
-## begin gnulib module fd-safer-flag
-
-libgnu_a_SOURCES += fd-safer-flag.c dup-safer-flag.c
-
-## end   gnulib module fd-safer-flag
-
 ## begin gnulib module filename
 
 
@@ -1303,6 +1297,15 @@ endif
 
 ## end   gnulib module lstat
 
+## begin gnulib module malloc-gnu
+
+
+EXTRA_DIST += malloc.c
+
+EXTRA_libgnu_a_SOURCES += malloc.c
+
+## end   gnulib module malloc-gnu
+
 ## begin gnulib module malloc-posix
 
 
@@ -1883,14 +1886,6 @@ EXTRA_DIST += pathmax.h
 
 ## end   gnulib module pathmax
 
-## begin gnulib module pipe-posix
-
-if GL_COND_OBJ_PIPE
-libgnu_a_SOURCES += pipe.c
-endif
-
-## end   gnulib module pipe-posix
-
 ## begin gnulib module printf-frexp
 
 libgnu_a_SOURCES += printf-frexp.c
@@ -2104,10 +2099,9 @@ endif
 
 ## begin gnulib module realloc-posix
 
-
-EXTRA_DIST += realloc.c
-
-EXTRA_libgnu_a_SOURCES += realloc.c
+if GL_COND_OBJ_REALLOC_POSIX
+libgnu_a_SOURCES += realloc.c
+endif
 
 ## end   gnulib module realloc-posix
 
@@ -2623,9 +2617,8 @@ EXTRA_DIST += stdio.in.h
 ## begin gnulib module stdlib
 
 BUILT_SOURCES += stdlib.h
+libgnu_a_SOURCES += stdlib.c
 
-# We need the following in order to create <stdlib.h> when the system
-# doesn't have one that works with the given compiler.
 stdlib.h: stdlib.in.h $(top_builddir)/config.status $(CXXDEFS_H) \
   $(_NORETURN_H) $(ARG_NONNULL_H) $(WARN_ON_USE_H)
 	$(gl_V_at)$(SED_HEADER_STDOUT) \
@@ -2664,7 +2657,6 @@ stdlib.h: stdlib.in.h $(top_builddir)/config.status $(CXXDEFS_H) \
 	      -e 's/@''GNULIB_RAND''@/$(GL_GNULIB_RAND)/g' \
 	      -e 's/@''GNULIB_RANDOM''@/$(GL_GNULIB_RANDOM)/g' \
 	      -e 's/@''GNULIB_RANDOM_R''@/$(GL_GNULIB_RANDOM_R)/g' \
-	      -e 's/@''GNULIB_REALLOC_GNU''@/$(GL_GNULIB_REALLOC_GNU)/g' \
 	      -e 's/@''GNULIB_REALLOC_POSIX''@/$(GL_GNULIB_REALLOC_POSIX)/g' \
 	      -e 's/@''GNULIB_REALLOCARRAY''@/$(GL_GNULIB_REALLOCARRAY)/g' \
 	      -e 's/@''GNULIB_REALPATH''@/$(GL_GNULIB_REALPATH)/g' \
@@ -2766,7 +2758,6 @@ stdlib.h: stdlib.in.h $(top_builddir)/config.status $(CXXDEFS_H) \
 	      -e 's|@''REPLACE_RAND''@|$(REPLACE_RAND)|g' \
 	      -e 's|@''REPLACE_RANDOM''@|$(REPLACE_RANDOM)|g' \
 	      -e 's|@''REPLACE_RANDOM_R''@|$(REPLACE_RANDOM_R)|g' \
-	      -e 's|@''REPLACE_REALLOC_FOR_REALLOC_GNU''@|$(REPLACE_REALLOC_FOR_REALLOC_GNU)|g' \
 	      -e 's|@''REPLACE_REALLOC_FOR_REALLOC_POSIX''@|$(REPLACE_REALLOC_FOR_REALLOC_POSIX)|g' \
 	      -e 's|@''REPLACE_REALLOCARRAY''@|$(REPLACE_REALLOCARRAY)|g' \
 	      -e 's|@''REPLACE_REALPATH''@|$(REPLACE_REALPATH)|g' \
@@ -3247,11 +3238,14 @@ time.h: time.in.h $(top_builddir)/config.status $(CXXDEFS_H) $(ARG_NONNULL_H) $(
 	      -e 's|@''HAVE_TIMESPEC_GET''@|$(HAVE_TIMESPEC_GET)|g' \
 	      -e 's|@''HAVE_TIMESPEC_GETRES''@|$(HAVE_TIMESPEC_GETRES)|g' \
 	      -e 's|@''HAVE_TIMEZONE_T''@|$(HAVE_TIMEZONE_T)|g' \
+	      -e 's|@''HAVE_TZALLOC''@|$(HAVE_TZALLOC)|g' \
 	      -e 's|@''REPLACE_CTIME''@|$(REPLACE_CTIME)|g' \
 	      -e 's|@''REPLACE_GMTIME''@|$(REPLACE_GMTIME)|g' \
 	      -e 's|@''REPLACE_LOCALTIME''@|$(REPLACE_LOCALTIME)|g' \
 	      -e 's|@''REPLACE_LOCALTIME_R''@|$(REPLACE_LOCALTIME_R)|g' \
+	      -e 's|@''REPLACE_LOCALTIME_RZ''@|$(REPLACE_LOCALTIME_RZ)|g' \
 	      -e 's|@''REPLACE_MKTIME''@|$(REPLACE_MKTIME)|g' \
+	      -e 's|@''REPLACE_MKTIME_Z''@|$(REPLACE_MKTIME_Z)|g' \
 	      -e 's|@''REPLACE_NANOSLEEP''@|$(REPLACE_NANOSLEEP)|g' \
 	      -e 's|@''REPLACE_STRFTIME''@|$(REPLACE_STRFTIME)|g' \
 	      -e 's|@''REPLACE_TIME''@|$(REPLACE_TIME)|g' \
@@ -3478,6 +3472,7 @@ unictype.h: unictype.in.h
 	      -e 's/@''GNULIB_UNICTYPE_PROPERTY_GRAPHEME_EXTEND_DLL_VARIABLE''@/$(GL_GNULIB_UNICTYPE_PROPERTY_GRAPHEME_EXTEND_DLL_VARIABLE)/g' \
 	      -e 's/@''GNULIB_UNICTYPE_PROPERTY_OTHER_GRAPHEME_EXTEND_DLL_VARIABLE''@/$(GL_GNULIB_UNICTYPE_PROPERTY_OTHER_GRAPHEME_EXTEND_DLL_VARIABLE)/g' \
 	      -e 's/@''GNULIB_UNICTYPE_PROPERTY_GRAPHEME_LINK_DLL_VARIABLE''@/$(GL_GNULIB_UNICTYPE_PROPERTY_GRAPHEME_LINK_DLL_VARIABLE)/g' \
+	      -e 's/@''GNULIB_UNICTYPE_PROPERTY_MODIFIER_COMBINING_MARK_DLL_VARIABLE''@/$(GL_GNULIB_UNICTYPE_PROPERTY_MODIFIER_COMBINING_MARK_DLL_VARIABLE)/g' \
 	      -e 's/@''GNULIB_UNICTYPE_PROPERTY_BIDI_CONTROL_DLL_VARIABLE''@/$(GL_GNULIB_UNICTYPE_PROPERTY_BIDI_CONTROL_DLL_VARIABLE)/g' \
 	      -e 's/@''GNULIB_UNICTYPE_PROPERTY_BIDI_LEFT_TO_RIGHT_DLL_VARIABLE''@/$(GL_GNULIB_UNICTYPE_PROPERTY_BIDI_LEFT_TO_RIGHT_DLL_VARIABLE)/g' \
 	      -e 's/@''GNULIB_UNICTYPE_PROPERTY_BIDI_HEBREW_RIGHT_TO_LEFT_DLL_VARIABLE''@/$(GL_GNULIB_UNICTYPE_PROPERTY_BIDI_HEBREW_RIGHT_TO_LEFT_DLL_VARIABLE)/g' \
@@ -3905,14 +3900,6 @@ EXTRA_DIST += unistd.in.h
 
 ## end   gnulib module unistd
 
-## begin gnulib module unistd-safer
-
-libgnu_a_SOURCES += dup-safer.c fd-safer.c pipe-safer.c
-
-EXTRA_DIST += unistd--.h unistd-safer.h
-
-## end   gnulib module unistd-safer
-
 ## begin gnulib module unistr/base
 
 BUILT_SOURCES += $(LIBUNISTRING_UNISTR_H)
@@ -4211,6 +4198,7 @@ wchar.h: wchar.in.h $(top_builddir)/config.status $(CXXDEFS_H) $(ARG_NONNULL_H) 
 	      -e 's|@''REPLACE_WCSWIDTH''@|$(REPLACE_WCSWIDTH)|g' \
 	      -e 's|@''REPLACE_WCSFTIME''@|$(REPLACE_WCSFTIME)|g' \
 	      -e 's|@''REPLACE_WCSCMP''@|$(REPLACE_WCSCMP)|g' \
+	      -e 's|@''REPLACE_WCSNCAT''@|$(REPLACE_WCSNCAT)|g' \
 	      -e 's|@''REPLACE_WCSNCMP''@|$(REPLACE_WCSNCMP)|g' \
 	      -e 's|@''REPLACE_WCSSTR''@|$(REPLACE_WCSSTR)|g' \
 	      -e 's|@''REPLACE_WCSTOK''@|$(REPLACE_WCSTOK)|g' \

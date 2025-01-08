@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.4 -->
-<!-- CreationDate: Thu Sep  5 09:36:52 2024 -->
+<!-- CreationDate: Sat Dec 21 10:27:31 2024 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -899,13 +899,13 @@ exists when <b>all</b> is used).</p>
 equivalent to <b>bind</b> <i>key function menu</i>, except
 that for the latter form <b>nano</b> checks the availability
 of the <i>function</i> in the given <i>menu</i> at startup
-time (and report an error if it does not exist there),
+time (and reports an error if it does not exist there),
 whereas for the first form <b>nano</b> checks at execution
 time that the <i>function</i> exists but not whether it
 makes any sense in the current menu. The user has to take
 care that a function name between braces (or any sequence of
-them) is appropriate. Strange behavior can result when it is
-not. <br>
+them) is appropriate. Strange behavior or even a crash can
+result when the braced name is unfitting. <br>
 The format of <i>key</i> should be one of:</p>
 
 <table width="100%" border="0" rules="none" frame="void"

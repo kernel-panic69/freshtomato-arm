@@ -13,8 +13,8 @@ The complete manual for the GNU nano text editor.
 
 @smallbook
 @set EDITION 0.8
-@set VERSION 8.2
-@set UPDATED September 2024
+@set VERSION 8.3
+@set UPDATED December 2024
 
 @dircategory Editors
 @direntry
@@ -29,7 +29,7 @@ The complete manual for the GNU nano text editor.
 
 @title GNU @command{nano}
 @subtitle a small and friendly text editor
-@subtitle version 8.2
+@subtitle version 8.3
 
 @author Chris Allegretta
 
@@ -79,7 +79,7 @@ For suggesting improvements: @email{nano-devel@@gnu.org}
 @node Top
 @top
 
-This manual documents GNU @command{nano}, version 8.2.
+This manual documents GNU @command{nano}, version 8.3.
 
 @menu
 * Introduction::
@@ -1441,12 +1441,13 @@ Unbinds @code{key} from @code{menu}
 Note that @code{bind key "@{function@}" menu} is equivalent to
 @code{bind key function menu}, except that for the latter form
 @command{nano} checks the availability of the @code{function}
-in the given @code{menu} at startup time (and report an error if
+in the given @code{menu} at startup time (and reports an error if
 it does not exist there), whereas for the first form @command{nano}
 checks at execution time that the @code{function} exists but not
 whether it makes any sense in the current menu. The user has to take
 care that a function name between braces (or any sequence of them)
-is appropriate.  Strange behavior can result when it is not.
+is appropriate.  Strange behavior or even a crash can result when
+the braced name is unfitting.
 
 @sp 1
 The format of @code{key} should be one of:

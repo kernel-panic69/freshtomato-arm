@@ -98,7 +98,6 @@ AC_DEFUN([gl_EARLY],
   # Code from module fcntl:
   # Code from module fcntl-h:
   # Code from module fd-hook:
-  # Code from module fd-safer-flag:
   # Code from module filename:
   # Code from module filenamecat-lgpl:
   # Code from module flexmember:
@@ -131,6 +130,7 @@ AC_DEFUN([gl_EARLY],
   # Code from module glibc-internal/scratch_buffer:
   # Code from module glob:
   # Code from module glob-h:
+  # Code from module gnulib-i18n:
   # Code from module hard-locale:
   # Code from module idx:
   # Code from module include_next:
@@ -156,6 +156,7 @@ AC_DEFUN([gl_EARLY],
   # Code from module localeconv:
   # Code from module lock:
   # Code from module lstat:
+  # Code from module malloc-gnu:
   # Code from module malloc-posix:
   # Code from module malloca:
   # Code from module math:
@@ -185,7 +186,6 @@ AC_DEFUN([gl_EARLY],
   # Code from module openat-h:
   # Code from module opendir:
   # Code from module pathmax:
-  # Code from module pipe-posix:
   # Code from module printf-frexp:
   # Code from module printf-frexpl:
   # Code from module printf-safe:
@@ -267,7 +267,6 @@ AC_DEFUN([gl_EARLY],
   # Code from module unictype/ctype-xdigit:
   # Code from module uninorm/base:
   # Code from module unistd:
-  # Code from module unistd-safer:
   # Code from module unistr/base:
   # Code from module unistr/u32-chr:
   # Code from module unistr/u32-cpy:
@@ -503,7 +502,6 @@ AC_DEFUN([gl_INIT],
   gl_FCNTL_H
   gl_FCNTL_H_REQUIRE_DEFAULTS
   AC_PROG_MKDIR_P
-  gl_MODULE_INDICATOR([fd-safer-flag])
   gl_FILE_NAME_CONCAT_LGPL
   AC_C_FLEXIBLE_ARRAY_MEMBER
   gl_FLOAT_H
@@ -649,6 +647,7 @@ AC_DEFUN([gl_INIT],
   gl_GLOB_H_REQUIRE_DEFAULTS
   gl_CONDITIONAL_HEADER([glob.h])
   AC_PROG_MKDIR_P
+  GNULIB_I18N
   AC_REQUIRE([gl_FUNC_SETLOCALE_NULL])
   HARD_LOCALE_LIB="$SETLOCALE_NULL_LIB"
   AC_SUBST([HARD_LOCALE_LIB])
@@ -729,6 +728,11 @@ AC_DEFUN([gl_INIT],
   ])
   gl_SYS_STAT_MODULE_INDICATOR([lstat])
   gl_MODULE_INDICATOR([lstat])
+  gl_FUNC_MALLOC_GNU
+  if test $REPLACE_MALLOC_FOR_MALLOC_GNU = 1; then
+    AC_LIBOBJ([malloc])
+  fi
+  gl_STDLIB_MODULE_INDICATOR([malloc-gnu])
   AC_REQUIRE([gl_FUNC_MALLOC_POSIX])
   if test $REPLACE_MALLOC_FOR_MALLOC_POSIX = 1; then
     AC_LIBOBJ([malloc])
@@ -856,9 +860,6 @@ AC_DEFUN([gl_INIT],
                  [test $HAVE_OPENDIR = 0 || test $REPLACE_OPENDIR = 1])
   gl_DIRENT_MODULE_INDICATOR([opendir])
   gl_PATHMAX
-  gl_FUNC_PIPE
-  gl_CONDITIONAL([GL_COND_OBJ_PIPE], [test $HAVE_PIPE = 0])
-  gl_UNISTD_MODULE_INDICATOR([pipe])
   gl_FUNC_PRINTF_FREXP
   gl_FUNC_PRINTF_FREXPL
   m4_divert_text([INIT_PREPARE], [gl_printf_safe=yes])
@@ -894,9 +895,9 @@ AC_DEFUN([gl_INIT],
   ])
   gl_UNISTD_MODULE_INDICATOR([readlink])
   gl_FUNC_REALLOC_POSIX
-  if test $REPLACE_REALLOC_FOR_REALLOC_POSIX = 1; then
-    AC_LIBOBJ([realloc])
-  fi
+  gl_FUNC_REALLOC_0_NONNULL
+  gl_CONDITIONAL([GL_COND_OBJ_REALLOC_POSIX],
+                 [test $REPLACE_REALLOC_FOR_REALLOC_POSIX != 0])
   gl_STDLIB_MODULE_INDICATOR([realloc-posix])
   gl_REGEX
   gl_CONDITIONAL([GL_COND_OBJ_REGEX], [test $ac_use_included_regex = yes])
@@ -1078,15 +1079,15 @@ AC_DEFUN([gl_INIT],
   gl_UNICASE_H
   gl_UNICASE_H_REQUIRE_DEFAULTS
   AC_PROG_MKDIR_P
-  gl_LIBUNISTRING_MODULE([0.9.11], [unicase/tolower])
-  gl_LIBUNISTRING_LIBHEADER([1.2], [unictype.h])
+  gl_LIBUNISTRING_MODULE([1.3], [unicase/tolower])
+  gl_LIBUNISTRING_LIBHEADER([1.3], [unictype.h])
   gl_UNICTYPE_H
   gl_UNICTYPE_H_REQUIRE_DEFAULTS
   AC_PROG_MKDIR_P
   AC_REQUIRE([AC_C_INLINE])
-  gl_LIBUNISTRING_MODULE([1.2], [unictype/ctype-alnum])
+  gl_LIBUNISTRING_MODULE([1.3], [unictype/ctype-alnum])
   AC_REQUIRE([AC_C_INLINE])
-  gl_LIBUNISTRING_MODULE([1.2], [unictype/ctype-alpha])
+  gl_LIBUNISTRING_MODULE([1.3], [unictype/ctype-alpha])
   AC_REQUIRE([AC_C_INLINE])
   gl_LIBUNISTRING_MODULE([0.9.8], [unictype/ctype-blank])
   AC_REQUIRE([AC_C_INLINE])
@@ -1094,17 +1095,17 @@ AC_DEFUN([gl_INIT],
   AC_REQUIRE([AC_C_INLINE])
   gl_LIBUNISTRING_MODULE([0.9.8], [unictype/ctype-digit])
   AC_REQUIRE([AC_C_INLINE])
-  gl_LIBUNISTRING_MODULE([1.2], [unictype/ctype-graph])
+  gl_LIBUNISTRING_MODULE([1.3], [unictype/ctype-graph])
   AC_REQUIRE([AC_C_INLINE])
-  gl_LIBUNISTRING_MODULE([0.9.11], [unictype/ctype-lower])
+  gl_LIBUNISTRING_MODULE([1.3], [unictype/ctype-lower])
   AC_REQUIRE([AC_C_INLINE])
-  gl_LIBUNISTRING_MODULE([1.2], [unictype/ctype-print])
+  gl_LIBUNISTRING_MODULE([1.3], [unictype/ctype-print])
   AC_REQUIRE([AC_C_INLINE])
-  gl_LIBUNISTRING_MODULE([1.2], [unictype/ctype-punct])
+  gl_LIBUNISTRING_MODULE([1.3], [unictype/ctype-punct])
   AC_REQUIRE([AC_C_INLINE])
   gl_LIBUNISTRING_MODULE([0.9.8], [unictype/ctype-space])
   AC_REQUIRE([AC_C_INLINE])
-  gl_LIBUNISTRING_MODULE([0.9.11], [unictype/ctype-upper])
+  gl_LIBUNISTRING_MODULE([1.3], [unictype/ctype-upper])
   AC_REQUIRE([AC_C_INLINE])
   gl_LIBUNISTRING_MODULE([0.9.8], [unictype/ctype-xdigit])
   gl_LIBUNISTRING_LIBHEADER([1.2], [uninorm.h])
@@ -1114,7 +1115,6 @@ AC_DEFUN([gl_INIT],
   gl_UNISTD_H
   gl_UNISTD_H_REQUIRE_DEFAULTS
   AC_PROG_MKDIR_P
-  gl_UNISTD_SAFER
   gl_LIBUNISTRING_LIBHEADER([1.2], [unistr.h])
   AC_PROG_MKDIR_P
   gl_LIBUNISTRING_MODULE([0.9], [unistr/u32-chr])
@@ -1141,7 +1141,7 @@ AC_DEFUN([gl_INIT],
   ])
   gl_LIBUNISTRING_LIBHEADER([0.9.11], [uniwidth.h])
   AC_PROG_MKDIR_P
-  gl_LIBUNISTRING_MODULE([1.2], [uniwidth/width])
+  gl_LIBUNISTRING_MODULE([1.3], [uniwidth/width])
   gl_FUNC_UTIME
   gl_CONDITIONAL([GL_COND_OBJ_UTIME],
                  [test $HAVE_UTIME = 0 || test $REPLACE_UTIME = 1])
@@ -1420,8 +1420,6 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/dirfd.c
   lib/dirname-lgpl.c
   lib/dirname.h
-  lib/dup-safer-flag.c
-  lib/dup-safer.c
   lib/dup2.c
   lib/dynarray.h
   lib/eloop-threshold.h
@@ -1435,8 +1433,6 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/fcntl.in.h
   lib/fd-hook.c
   lib/fd-hook.h
-  lib/fd-safer-flag.c
-  lib/fd-safer.c
   lib/filename.h
   lib/filenamecat-lgpl.c
   lib/filenamecat.h
@@ -1568,8 +1564,6 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/openat.h
   lib/opendir.c
   lib/pathmax.h
-  lib/pipe-safer.c
-  lib/pipe.c
   lib/printf-args.c
   lib/printf-args.h
   lib/printf-frexp.c
@@ -1622,6 +1616,7 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/stdio-read.c
   lib/stdio-write.c
   lib/stdio.in.h
+  lib/stdlib.c
   lib/stdlib.in.h
   lib/str-two-way.h
   lib/strcasecmp.c
@@ -1680,8 +1675,6 @@ AC_DEFUN([gl_FILE_LIST], [
   lib/unictype/ctype_xdigit.c
   lib/unictype/ctype_xdigit.h
   lib/uninorm.in.h
-  lib/unistd--.h
-  lib/unistd-safer.h
   lib/unistd.c
   lib/unistd.in.h
   lib/unistr.in.h
@@ -1738,6 +1731,7 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/alloca.m4
   m4/assert_h.m4
   m4/btowc.m4
+  m4/build-to-host.m4
   m4/builtin-expect.m4
   m4/c-bool.m4
   m4/c32rtomb.m4
@@ -1753,7 +1747,6 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/dirfd.m4
   m4/double-slash-root.m4
   m4/dup2.m4
-  m4/eealloc.m4
   m4/errno_h.m4
   m4/error.m4
   m4/error_h.m4
@@ -1793,6 +1786,7 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/glob.m4
   m4/glob_h.m4
   m4/gnulib-common.m4
+  m4/gnulib-i18n.m4
   m4/include_next.m4
   m4/inline.m4
   m4/intmax_t.m4
@@ -1854,7 +1848,6 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/opendir.m4
   m4/pathmax.m4
   m4/pid_t.m4
-  m4/pipe.m4
   m4/printf-frexp.m4
   m4/printf-frexpl.m4
   m4/printf.m4
@@ -1910,7 +1903,6 @@ AC_DEFUN([gl_FILE_LIST], [
   m4/unicase_h.m4
   m4/unictype_h.m4
   m4/uninorm_h.m4
-  m4/unistd-safer.m4
   m4/unistd_h.m4
   m4/utime.m4
   m4/utime_h.m4
