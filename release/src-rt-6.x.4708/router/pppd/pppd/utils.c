@@ -1,7 +1,7 @@
 /*
  * utils.c - various utility functions used in pppd.
  *
- * Copyright (c) 1999-2002 Paul Mackerras. All rights reserved.
+ * Copyright (c) 1999-2024 Paul Mackerras. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,14 +10,10 @@
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
  *
- * 2. The name(s) of the authors of this software must not be used to
- *    endorse or promote products derived from this software without
- *    prior written permission.
- *
- * 3. Redistributions of any form whatsoever must retain the following
- *    acknowledgment:
- *    "This product includes software developed by Paul Mackerras
- *     <paulus@ozlabs.org>".
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
  *
  * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
  * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -142,8 +138,8 @@ vslprintf(char *buf, int buflen, const char *fmt, va_list args)
     int c, i, n;
     int width, prec, fillch;
     int base, len, neg, quoted;
-    long lval = 0;
-    unsigned long val = 0;
+    long long lval = 0;
+    unsigned long long val = 0;
     char *str, *buf0;
     const char *f;
     unsigned char *p;
@@ -208,6 +204,30 @@ vslprintf(char *buf, int buflen, const char *fmt, va_list args)
 	case 'l':
 	    c = *fmt++;
 	    switch (c) {
+	    case 'l':
+		c = *fmt++;
+		switch (c) {
+		case 'd':
+		    lval = va_arg(args, long long);
+		    if (lval < 0) {
+			neg = 1;
+			val = -lval;
+		    } else
+			val = lval;
+		    base = 10;
+		    break;
+		case 'u':
+		    val = va_arg(args, unsigned long long);
+		    base = 10;
+		    break;
+		default:
+		    OUTCHAR('%');
+		    OUTCHAR('l');
+		    OUTCHAR('l');
+		    --fmt;		/* so %llz outputs %llz etc. */
+		    continue;
+		}
+		break;
 	    case 'd':
 		lval = va_arg(args, long);
 		if (lval < 0) {

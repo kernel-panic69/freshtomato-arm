@@ -147,12 +147,6 @@ am__v_lt_1 =
 minconn_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(minconn_la_LDFLAGS) $(LDFLAGS) -o $@
-passprompt_la_LIBADD =
-am_passprompt_la_OBJECTS = passprompt_la-passprompt.lo
-passprompt_la_OBJECTS = $(am_passprompt_la_OBJECTS)
-passprompt_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(passprompt_la_LDFLAGS) $(LDFLAGS) -o $@
 passwordfd_la_LIBADD =
 am_passwordfd_la_OBJECTS = passwordfd_la-passwordfd.lo
 passwordfd_la_OBJECTS = $(am_passwordfd_la_OBJECTS)
@@ -181,7 +175,6 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/pppd -I$(top_builddir)/pppd/p
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/minconn_la-minconn.Plo \
-	./$(DEPDIR)/passprompt_la-passprompt.Plo \
 	./$(DEPDIR)/passwordfd_la-passwordfd.Plo \
 	./$(DEPDIR)/winbind_la-winbind.Plo
 am__mv = mv -f
@@ -203,10 +196,10 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(minconn_la_SOURCES) $(passprompt_la_SOURCES) \
-	$(passwordfd_la_SOURCES) $(winbind_la_SOURCES)
-DIST_SOURCES = $(minconn_la_SOURCES) $(passprompt_la_SOURCES) \
-	$(passwordfd_la_SOURCES) $(winbind_la_SOURCES)
+SOURCES = $(minconn_la_SOURCES) $(passwordfd_la_SOURCES) \
+	$(winbind_la_SOURCES)
+DIST_SOURCES = $(minconn_la_SOURCES) $(passwordfd_la_SOURCES) \
+	$(winbind_la_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -306,11 +299,7 @@ ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 FILECMD = @FILECMD@
-GLIB_CFLAGS = @GLIB_CFLAGS@
-GLIB_LIBS = @GLIB_LIBS@
 GREP = @GREP@
-GTK_CFLAGS = @GTK_CFLAGS@
-GTK_LIBS = @GTK_LIBS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -424,16 +413,13 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-pppd_plugin_LTLIBRARIES = minconn.la passprompt.la passwordfd.la winbind.la
+pppd_plugin_LTLIBRARIES = minconn.la passwordfd.la winbind.la
 pppd_plugindir = $(PPPD_PLUGIN_DIR)
 PLUGIN_CPPFLAGS = -I${top_srcdir}
 PLUGIN_LDFLAGS = -module -avoid-version
 minconn_la_CPPFLAGS = $(PLUGIN_CPPFLAGS)
 minconn_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 minconn_la_SOURCES = minconn.c
-passprompt_la_CPPFLAGS = $(PLUGIN_CPPFLAGS)
-passprompt_la_LDFLAGS = $(PLUGIN_LDFLAGS)
-passprompt_la_SOURCES = passprompt.c
 passwordfd_la_CPPFLAGS = $(PLUGIN_CPPFLAGS)
 passwordfd_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 passwordfd_la_SOURCES = passwordfd.c
@@ -513,9 +499,6 @@ clean-pppd_pluginLTLIBRARIES:
 minconn.la: $(minconn_la_OBJECTS) $(minconn_la_DEPENDENCIES) $(EXTRA_minconn_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(minconn_la_LINK) -rpath $(pppd_plugindir) $(minconn_la_OBJECTS) $(minconn_la_LIBADD) $(LIBS)
 
-passprompt.la: $(passprompt_la_OBJECTS) $(passprompt_la_DEPENDENCIES) $(EXTRA_passprompt_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(passprompt_la_LINK) -rpath $(pppd_plugindir) $(passprompt_la_OBJECTS) $(passprompt_la_LIBADD) $(LIBS)
-
 passwordfd.la: $(passwordfd_la_OBJECTS) $(passwordfd_la_DEPENDENCIES) $(EXTRA_passwordfd_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(passwordfd_la_LINK) -rpath $(pppd_plugindir) $(passwordfd_la_OBJECTS) $(passwordfd_la_LIBADD) $(LIBS)
 
@@ -529,7 +512,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minconn_la-minconn.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passprompt_la-passprompt.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passwordfd_la-passwordfd.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/winbind_la-winbind.Plo@am__quote@ # am--include-marker
 
@@ -566,13 +548,6 @@ minconn_la-minconn.lo: minconn.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='minconn.c' object='minconn_la-minconn.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(minconn_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o minconn_la-minconn.lo `test -f 'minconn.c' || echo '$(srcdir)/'`minconn.c
-
-passprompt_la-passprompt.lo: passprompt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(passprompt_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT passprompt_la-passprompt.lo -MD -MP -MF $(DEPDIR)/passprompt_la-passprompt.Tpo -c -o passprompt_la-passprompt.lo `test -f 'passprompt.c' || echo '$(srcdir)/'`passprompt.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/passprompt_la-passprompt.Tpo $(DEPDIR)/passprompt_la-passprompt.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='passprompt.c' object='passprompt_la-passprompt.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(passprompt_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o passprompt_la-passprompt.lo `test -f 'passprompt.c' || echo '$(srcdir)/'`passprompt.c
 
 passwordfd_la-passwordfd.lo: passwordfd.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(passwordfd_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT passwordfd_la-passwordfd.lo -MD -MP -MF $(DEPDIR)/passwordfd_la-passwordfd.Tpo -c -o passwordfd_la-passwordfd.lo `test -f 'passwordfd.c' || echo '$(srcdir)/'`passwordfd.c
@@ -795,7 +770,6 @@ clean-am: clean-generic clean-libtool clean-pppd_pluginLTLIBRARIES \
 
 distclean: distclean-recursive
 		-rm -f ./$(DEPDIR)/minconn_la-minconn.Plo
-	-rm -f ./$(DEPDIR)/passprompt_la-passprompt.Plo
 	-rm -f ./$(DEPDIR)/passwordfd_la-passwordfd.Plo
 	-rm -f ./$(DEPDIR)/winbind_la-winbind.Plo
 	-rm -f Makefile
@@ -844,7 +818,6 @@ installcheck-am:
 
 maintainer-clean: maintainer-clean-recursive
 		-rm -f ./$(DEPDIR)/minconn_la-minconn.Plo
-	-rm -f ./$(DEPDIR)/passprompt_la-passprompt.Plo
 	-rm -f ./$(DEPDIR)/passwordfd_la-passwordfd.Plo
 	-rm -f ./$(DEPDIR)/winbind_la-winbind.Plo
 	-rm -f Makefile

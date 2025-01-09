@@ -273,11 +273,7 @@ ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 FILECMD = @FILECMD@
-GLIB_CFLAGS = @GLIB_CFLAGS@
-GLIB_LIBS = @GLIB_LIBS@
 GREP = @GREP@
-GTK_CFLAGS = @GTK_CFLAGS@
-GTK_LIBS = @GTK_LIBS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -392,7 +388,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = "-Im4"
-SUBDIRS = chat contrib pppd pppstats pppdump $(am__append_1)
+SUBDIRS = chat pppd pppstats pppdump $(am__append_1)
 DIST_SUBDIRS = $(SUBDIRS) include scripts
 sampledir = $(sysconfdir)/$(PACKAGE)
 sample_DATA = \
@@ -405,7 +401,10 @@ sample_DATA = \
 
 EXTRA_README = \
     Changes-2.3 \
+    Changes-2.4 \
     FAQ \
+    LICENSE.BSD \
+    LICENSE.GPL-2 \
     README \
     README.cbcp \
     README.eap-srp \
@@ -419,12 +418,15 @@ EXTRA_README = \
     README.pwfd \
     README.sol2 \
     PLUGINS \
+    SECURITY.md \
     SETUP \
-    Submitting-patches.md
+    Submitting-patches.md \
+    autogen.sh
 
 EXTRA_DIST = \
     $(sample_DATA) \
-    $(EXTRA_README)
+    $(EXTRA_README) \
+    sample
 
 all: all-recursive
 

@@ -95,42 +95,41 @@ sbin_PROGRAMS = pppd$(EXEEXT) $(am__EXEEXT_4)
 check_PROGRAMS = utest_crypto$(EXEEXT) utest_utils$(EXEEXT) \
 	$(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3)
 @WITH_SRP_TRUE@am__append_1 = srp-entry
-@WITH_SRP_TRUE@am__append_2 = srp-entry.8
-@PPP_WITH_SYSTEM_CA_PATH_TRUE@am__append_3 = -DSYSTEM_CA_PATH='"@SYSTEM_CA_PATH@"'
-@LINUX_TRUE@am__append_4 = sys-linux.c
-@LINUX_TRUE@am__append_5 = termios_linux.h
-@LINUX_TRUE@am__append_6 = $(CRYPT_LIBS) $(UTIL_LIBS)
-@SUNOS_TRUE@am__append_7 = sys-solaris.c
-@SUNOS_TRUE@am__append_8 = -I${top_srcdir}/include
-@SUNOS_TRUE@am__append_9 = -lsocket -lnsl
-@PPP_WITH_CHAPMS_TRUE@am__append_10 = chap_ms.c crypto_ms.c
-@PPP_WITH_CHAPMS_TRUE@am__append_11 = utest_chap utest_pppcrypt
-@PPP_WITH_CHAPMS_FALSE@@WITH_SRP_TRUE@am__append_12 = crypto_ms.c
-@PPP_WITH_CHAPMS_FALSE@@WITH_SRP_TRUE@am__append_13 = utest_pppcrypt
-@PPP_WITH_CBCP_TRUE@am__append_14 = cbcp.c
-@PPP_WITH_MPPE_TRUE@am__append_15 = mppe.c
-@PPP_WITH_FILTER_TRUE@am__append_16 = $(PCAP_CFLAGS)
-@PPP_WITH_FILTER_TRUE@am__append_17 = $(PCAP_LDFLAGS)
-@PPP_WITH_FILTER_TRUE@am__append_18 = $(PCAP_LIBS)
-@PPP_WITH_PLUGINS_TRUE@am__append_19 = -DPPPD_PLUGIN_DIR='"@PPPD_PLUGIN_DIR@"'
-@PPP_WITH_PLUGINS_TRUE@am__append_20 = -ldl
-@LINUX_TRUE@@PPP_WITH_PLUGINS_TRUE@am__append_21 = -Wl,-E
-@PPP_WITH_MULTILINK_TRUE@am__append_22 = multilink.c
-@PPP_WITH_TDB_TRUE@am__append_23 = tdb.c spinlock.c
-@PPP_WITH_IPV6CP_TRUE@am__append_24 = ipv6cp.c eui64.c
-@PPP_WITH_PAM_TRUE@am__append_25 = $(PAM_CFLAGS)
-@PPP_WITH_PAM_TRUE@am__append_26 = $(PAM_LIBS) -ldl
-@PPP_WITH_PAM_TRUE@am__append_27 = $(PAM_LDFLAGS)
-@PPP_WITH_EAPTLS_TRUE@am__append_28 = eap-tls.c tls.c
-@PPP_WITH_EAPTLS_FALSE@@PPP_WITH_PEAP_TRUE@am__append_29 = tls.c
-@PPP_WITH_PEAP_TRUE@am__append_30 = peap.c
-@PPP_WITH_PEAP_TRUE@am__append_31 = utest_peap
-@PPP_WITH_OPENSSL_TRUE@am__append_32 = $(OPENSSL_INCLUDES)
-@WITH_SYSTEMD_TRUE@am__append_33 = $(SYSTEMD_CFLAGS)
-@WITH_SYSTEMD_TRUE@am__append_34 = $(SYSTEMD_LIBS)
-@WITH_SRP_TRUE@am__append_35 = $(SRP_CFLAGS)
-@WITH_SRP_TRUE@am__append_36 = $(SRP_LDFLAGS)
-@WITH_SRP_TRUE@am__append_37 = $(SRP_LIBS)
+@PPP_WITH_SYSTEM_CA_PATH_TRUE@am__append_2 = -DSYSTEM_CA_PATH='"@SYSTEM_CA_PATH@"'
+@LINUX_TRUE@am__append_3 = sys-linux.c
+@LINUX_TRUE@am__append_4 = termios_linux.h
+@LINUX_TRUE@am__append_5 = $(CRYPT_LIBS) $(UTIL_LIBS)
+@SUNOS_TRUE@am__append_6 = sys-solaris.c
+@SUNOS_TRUE@am__append_7 = -I${top_srcdir}/include
+@SUNOS_TRUE@am__append_8 = -lsocket -lnsl
+@PPP_WITH_CHAPMS_TRUE@am__append_9 = chap_ms.c crypto_ms.c
+@PPP_WITH_CHAPMS_TRUE@am__append_10 = utest_chap utest_pppcrypt
+@PPP_WITH_CHAPMS_FALSE@@WITH_SRP_TRUE@am__append_11 = crypto_ms.c
+@PPP_WITH_CHAPMS_FALSE@@WITH_SRP_TRUE@am__append_12 = utest_pppcrypt
+@PPP_WITH_CBCP_TRUE@am__append_13 = cbcp.c
+@PPP_WITH_MPPE_TRUE@am__append_14 = mppe.c
+@PPP_WITH_FILTER_TRUE@am__append_15 = $(PCAP_CFLAGS)
+@PPP_WITH_FILTER_TRUE@am__append_16 = $(PCAP_LDFLAGS)
+@PPP_WITH_FILTER_TRUE@am__append_17 = $(PCAP_LIBS)
+@PPP_WITH_PLUGINS_TRUE@am__append_18 = -DPPPD_PLUGIN_DIR='"@PPPD_PLUGIN_DIR@"'
+@PPP_WITH_PLUGINS_TRUE@am__append_19 = -ldl
+@LINUX_TRUE@@PPP_WITH_PLUGINS_TRUE@am__append_20 = -Wl,-E
+@PPP_WITH_MULTILINK_TRUE@am__append_21 = multilink.c
+@PPP_WITH_TDB_TRUE@am__append_22 = tdb.c spinlock.c
+@PPP_WITH_IPV6CP_TRUE@am__append_23 = ipv6cp.c eui64.c
+@PPP_WITH_PAM_TRUE@am__append_24 = $(PAM_CFLAGS)
+@PPP_WITH_PAM_TRUE@am__append_25 = $(PAM_LIBS) -ldl
+@PPP_WITH_PAM_TRUE@am__append_26 = $(PAM_LDFLAGS)
+@PPP_WITH_EAPTLS_TRUE@am__append_27 = eap-tls.c tls.c
+@PPP_WITH_EAPTLS_FALSE@@PPP_WITH_PEAP_TRUE@am__append_28 = tls.c
+@PPP_WITH_PEAP_TRUE@am__append_29 = peap.c
+@PPP_WITH_PEAP_TRUE@am__append_30 = utest_peap
+@PPP_WITH_OPENSSL_TRUE@am__append_31 = $(OPENSSL_INCLUDES)
+@WITH_SYSTEMD_TRUE@am__append_32 = $(SYSTEMD_CFLAGS)
+@WITH_SYSTEMD_TRUE@am__append_33 = $(SYSTEMD_LIBS)
+@WITH_SRP_TRUE@am__append_34 = $(SRP_CFLAGS)
+@WITH_SRP_TRUE@am__append_35 = $(SRP_LDFLAGS)
+@WITH_SRP_TRUE@am__append_36 = $(SRP_LIBS)
 subdir = pppd
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_check_atm.m4 \
@@ -614,11 +613,7 @@ ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 FILECMD = @FILECMD@
-GLIB_CFLAGS = @GLIB_CFLAGS@
-GLIB_LIBS = @GLIB_LIBS@
 GREP = @GREP@
-GTK_CFLAGS = @GTK_CFLAGS@
-GTK_LIBS = @GTK_LIBS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -732,7 +727,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-dist_man8_MANS = pppd.8 $(am__append_2)
+dist_man8_MANS = pppd.8
 utest_chap_SOURCES = chap_ms.c utils.c crypto_ms.c
 utest_chap_CPPFLAGS = -DUNIT_TEST
 utest_chap_LDFLAGS = 
@@ -777,14 +772,13 @@ pppd_include_HEADERS = \
 
 # Headers to be distributed, but not installed in /usr/include/pppd
 noinst_HEADERS = chap-md5.h crypto-priv.h eap-tls.h pathnames.h peap.h \
-	pppd-private.h spinlock.h tls.h tdb.h $(am__append_5)
+	pppd-private.h spinlock.h tls.h tdb.h $(am__append_4)
 pppd_SOURCES = auth.c ccp.c chap-md5.c chap.c demand.c eap.c ecp.c \
 	fsm.c ipcp.c lcp.c magic.c main.c options.c session.c tty.c \
-	upap.c utils.c $(am__append_4) $(am__append_7) \
-	$(am__append_10) $(am__append_12) $(am__append_14) \
-	$(am__append_15) $(am__append_22) $(am__append_23) \
-	$(am__append_24) $(am__append_28) $(am__append_29) \
-	$(am__append_30)
+	upap.c utils.c $(am__append_3) $(am__append_6) $(am__append_9) \
+	$(am__append_11) $(am__append_13) $(am__append_14) \
+	$(am__append_21) $(am__append_22) $(am__append_23) \
+	$(am__append_27) $(am__append_28) $(am__append_29)
 
 # Things produced by the build process, to be installed but not distributed
 BUILT_SOURCE = \
@@ -792,15 +786,15 @@ BUILT_SOURCE = \
 
 pppd_CPPFLAGS = -DSYSCONFDIR=\"${sysconfdir}\" \
 	-DPPPD_RUNTIME_DIR='"@PPPD_RUNTIME_DIR@"' \
-	-DPPPD_LOGFILE_DIR='"@PPPD_LOGFILE_DIR@"' $(am__append_3) \
-	$(am__append_8) $(am__append_16) $(am__append_19) \
-	$(am__append_25) $(am__append_32) $(am__append_33) \
+	-DPPPD_LOGFILE_DIR='"@PPPD_LOGFILE_DIR@"' $(am__append_2) \
+	$(am__append_7) $(am__append_15) $(am__append_18) \
+	$(am__append_24) $(am__append_31) $(am__append_32) \
+	$(am__append_34)
+pppd_LDFLAGS = $(am__append_16) $(am__append_20) $(am__append_26) \
 	$(am__append_35)
-pppd_LDFLAGS = $(am__append_17) $(am__append_21) $(am__append_27) \
-	$(am__append_36)
-pppd_LIBS = $(am__append_6) $(am__append_9) $(am__append_18) \
-	$(am__append_20) $(am__append_26) libppp_crypto.la \
-	$(am__append_34) $(am__append_37)
+pppd_LIBS = $(am__append_5) $(am__append_8) $(am__append_17) \
+	$(am__append_19) $(am__append_25) libppp_crypto.la \
+	$(am__append_33) $(am__append_36)
 noinst_LTLIBRARIES = libppp_crypto.la
 libppp_crypto_la_SOURCES = crypto.c ppp-md5.c ppp-md4.c ppp-sha1.c ppp-des.c
 @PPP_WITH_OPENSSL_TRUE@libppp_crypto_la_CPPFLAGS = $(OPENSSL_INCLUDES)
@@ -814,9 +808,11 @@ utest_pppcrypt_LDADD = libppp_crypto.la
 @WITH_SRP_TRUE@srp_entry_CPPFLAGS = $(OPENSSL_INCLUDES) $(SRP_CFLAGS)
 @WITH_SRP_TRUE@srp_entry_LDADD = $(SRP_LIBS) $(OPENSSL_LIBS)
 @WITH_SRP_TRUE@srp_entry_LDFLAGS = $(OPENSSL_LDFLAGS) $(SRP_LDFLAGS)
+@WITH_SRP_TRUE@dist_srp_entry_MANS = srp-entry.8
 pppd_LDADD = $(pppd_LIBS)
 EXTRA_DIST = \
-    ppp.pam
+    ppp.pam \
+    srp-entry.8
 
 TESTS = $(check_PROGRAMS)
 all: config.h pppdconf.h

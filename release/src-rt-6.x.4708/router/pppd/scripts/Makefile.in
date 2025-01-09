@@ -127,7 +127,7 @@ am__can_run_installinfo = \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
-am__DIST_COMMON = $(srcdir)/Makefile.in README
+am__DIST_COMMON = $(srcdir)/Makefile.in
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
@@ -162,11 +162,7 @@ ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 FILECMD = @FILECMD@
-GLIB_CFLAGS = @GLIB_CFLAGS@
-GLIB_LIBS = @GLIB_LIBS@
 GREP = @GREP@
-GTK_CFLAGS = @GTK_CFLAGS@
-GTK_LIBS = @GTK_LIBS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -282,27 +278,14 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 EXTRA_SCRIPTS = \
     autopppd \
-    callback \
-    ip-down.local.add \
-    ip-up.local.add \
     ipv6-down.sample \
     ipv6-up.sample \
-    options-rsh-loc \
-    options-rsh-rem \
-    options-ssh-loc \
-    options-ssh-rem \
     plog \
     poff \
     pon \
     pon.1 \
-    ppp-off \
-    ppp-on \
-    ppp-on-dialer \
-    ppp-on-rsh \
-    ppp-on-ssh \
-    README \
-    redialer \
-    secure-card
+    lcp_rtt_dump \
+    lcp_rtt_exporter
 
 EXTRA_DIST = \
     $(EXTRA_SCRIPTS)

@@ -5,7 +5,7 @@
 .\" IP indented paragraph
 .\" TP hanging label
 .\" 
-.\" Copyright (c) 1993-2003 Paul Mackerras <paulus@ozlabs.org>
+.\" Copyright (c) 1993-2024 Paul Mackerras <paulus@ozlabs.org>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -475,7 +475,8 @@ exclude the password string from the log.  This is the default.
 Specifies how many seconds to wait before re-initiating the link after
 it terminates.  This option only has any effect if the \fIpersist\fR
 or \fIdemand\fR option is used.  The holdoff period is not applied if
-the link was terminated because it was idle.
+the link was terminated because it was idle, connect time expired,
+modem hangup or user request.
 .TP
 .B idle \fIn
 Specifies that pppd should disconnect if the link is idle for \fIn\fR
@@ -1779,6 +1780,12 @@ set when IPV6CP has come up.
 .B PEERNAME
 The authenticated name of the peer.  This is only set if the peer
 authenticates itself.
+.TP
+.B REMOTENUMBER
+The remote's number as provided to pppd by the remotenumber option.  The
+meaning of this varies based on the type of connection, xl2tpd for example can
+either provide the dialing number AVP or the remote's IP address.  pppoe-server
+typically provides the MAC address.
 .TP
 .B SPEED
 The baud rate of the tty device.

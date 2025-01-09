@@ -24,7 +24,7 @@
 /* System provides the logwtmp() function */
 #undef HAVE_LOGWTMP
 
-/* Define to 1 if you have the `mmap' function. */
+/* Define to 1 if you have the 'mmap' function. */
 #undef HAVE_MMAP
 
 /* Define to 1 if you have the <netinet/if_ether.h> header file. */
@@ -69,7 +69,7 @@
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
 
-/* Define to 1 if you have the `strerror' function. */
+/* Define to 1 if you have the 'strerror' function. */
 #undef HAVE_STRERROR
 
 /* Define to 1 if you have the <strings.h> header file. */
@@ -111,7 +111,7 @@
 /* Define to 1 if you have the <utmp.h> header file. */
 #undef HAVE_UTMP_H
 
-/* Define to 1 if the system has the type `_Bool'. */
+/* Define to 1 if the system has the type '_Bool'. */
 #undef HAVE__BOOL
 
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
@@ -198,16 +198,16 @@
 /* Include TDB support */
 #undef PPP_WITH_TDB
 
-/* The size of `unsigned int', as computed by sizeof. */
+/* The size of 'unsigned int', as computed by sizeof. */
 #undef SIZEOF_UNSIGNED_INT
 
-/* The size of `unsigned long', as computed by sizeof. */
+/* The size of 'unsigned long', as computed by sizeof. */
 #undef SIZEOF_UNSIGNED_LONG
 
-/* The size of `unsigned short', as computed by sizeof. */
+/* The size of 'unsigned short', as computed by sizeof. */
 #undef SIZEOF_UNSIGNED_SHORT
 
-/* Define to 1 if all of the C90 standard headers exist (not just the ones
+/* Define to 1 if all of the C89 standard headers exist (not just the ones
    required in a freestanding environment). This macro is provided for
    backward compatibility; new code need not use it. */
 #undef STDC_HEADERS

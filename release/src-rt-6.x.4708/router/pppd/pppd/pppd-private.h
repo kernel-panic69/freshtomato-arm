@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: pppd.h,v 1.96 2008/06/23 11:47:18 paulus Exp $
  */
 
 #ifndef PPP_PPPD_PRIVATE_H
@@ -65,7 +63,11 @@
  * Where should PPP_DRV_NAME come from? Do we include it here?
  */
 #if !defined(PPP_DRV_NAME)
+#if defined(SOL2)
+#define PPP_DRV_NAME	"sppp"
+#else
 #define PPP_DRV_NAME	"ppp"
+#endif /* defined(SOL2) */
 #endif /* !defined(PPP_DRV_NAME) */
 
 
