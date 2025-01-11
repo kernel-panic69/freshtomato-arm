@@ -452,7 +452,7 @@ table.fields {
 
 div#vlan-grid img[id^="eth_"] {
 	width: 55%;
-	max-height: 55vh;
+	height: 55%;
 }
 
 div[id^="vport_"],
